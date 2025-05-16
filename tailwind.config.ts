@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,17 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// CrochêLab custom colors
+				yarn: {
+					lavender: '#B4A7D6',
+					sage: '#A8D1A1',
+					terracotta: '#E6B89C',
+					cream: '#F5F0E6',
+					violet: '#9C89B8',
+					moss: '#7D9D7F',
+					coral: '#F0997D',
+					charcoal: '#3A3335',
 				}
 			},
 			borderRadius: {
@@ -84,11 +96,30 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-10px)' }
+				},
+				'pulse-gentle': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.7' }
+				},
+				'spin-slow': {
+					'0%': { transform: 'rotate(0deg)' },
+					'100%': { transform: 'rotate(360deg)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'float': 'float 6s ease-in-out infinite',
+				'pulse-gentle': 'pulse-gentle 3s ease-in-out infinite',
+				'spin-slow': 'spin-slow 12s linear infinite'
+			},
+			fontFamily: {
+				'display': ['Playfair Display', 'serif'],
+				'sans': ['Inter', 'sans-serif'],
 			}
 		}
 	},
