@@ -1,52 +1,60 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl?: string;
-}
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('crochelab-user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Primeiro, configure o listener de mudança de estado de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        if (event === 'SIGNED_OUT') {
+          toast.info('Você saiu da sua conta');
+        } else if (event === 'SIGNED_IN') {
+          toast.success('Login realizado com sucesso!');
+        }
+      }
+    );
+
+    // Em seguida, verifique se há uma sessão existente
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
-    // This is a placeholder for future Supabase integration
     setIsLoading(true);
     try {
-      // Mock successful login for now
-      const mockUser = {
-        id: '1',
-        name: 'Usuário Teste',
-        email: email,
-        avatarUrl: '',
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('crochelab-user', JSON.stringify(mockUser));
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('Erro de login:', error);
+      toast.error('Falha no login. Verifique seu email e senha.');
       throw error;
     } finally {
       setIsLoading(false);
@@ -54,35 +62,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const register = async (name: string, email: string, password: string) => {
-    // This is a placeholder for future Supabase integration
     setIsLoading(true);
     try {
-      // Mock successful registration for now
-      const mockUser = {
-        id: '1',
-        name: name,
-        email: email,
-        avatarUrl: '',
-      };
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name
+          }
+        }
+      });
       
-      setUser(mockUser);
-      localStorage.setItem('crochelab-user', JSON.stringify(mockUser));
+      if (error) throw error;
+      toast.success('Cadastro realizado! Verifique seu email para confirmar.');
     } catch (error) {
-      console.error('Registration failed:', error);
+      console.error('Erro de registro:', error);
+      toast.error('Falha no registro. Tente novamente.');
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    // Clear user data
-    setUser(null);
-    localStorage.removeItem('crochelab-user');
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+      toast.error('Ocorreu um erro ao sair. Tente novamente.');
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, session, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -91,7 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
   }
   return context;
 };
