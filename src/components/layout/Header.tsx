@@ -1,13 +1,24 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Search, Menu, User, Heart } from 'lucide-react';
+import { Search, Menu, User, Heart, LogIn } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Header() {
   const isMobile = useIsMobile();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAuthClick = () => {
+    if (user) {
+      logout();
+    } else {
+      navigate('/auth');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
@@ -27,6 +38,7 @@ export default function Header() {
                   <Link to="/patterns" className="text-lg font-display font-medium px-2">Catálogo</Link>
                   <Link to="/import" className="text-lg font-display font-medium px-2">Importar PDF</Link>
                   <Link to="/my-projects" className="text-lg font-display font-medium px-2">Meus Projetos</Link>
+                  {!user && <Link to="/auth" className="text-lg font-display font-medium px-2">Entrar / Cadastrar</Link>}
                 </div>
               </SheetContent>
             </Sheet>
@@ -58,9 +70,18 @@ export default function Header() {
             <Heart className="h-5 w-5" />
             <span className="sr-only">Favoritos</span>
           </Button>
-          <Button variant="outline" size="icon" className="rounded-full">
-            <User className="h-5 w-5" />
-            <span className="sr-only">Perfil</span>
+          <Button 
+            variant={user ? "outline" : "ghost"} 
+            size="icon" 
+            className={user ? "rounded-full" : ""}
+            onClick={handleAuthClick}
+          >
+            {user ? (
+              <User className="h-5 w-5" />
+            ) : (
+              <LogIn className="h-5 w-5" />
+            )}
+            <span className="sr-only">{user ? "Perfil" : "Entrar"}</span>
           </Button>
         </div>
       </div>
