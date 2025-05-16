@@ -11,6 +11,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +33,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           toast.info('Você saiu da sua conta');
         } else if (event === 'SIGNED_IN') {
           toast.success('Login realizado com sucesso!');
+        } else if (event === 'PASSWORD_RECOVERY') {
+          toast.info('Por favor, defina sua nova senha');
         }
       }
     );
@@ -95,8 +99,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Erro ao solicitar redefinição de senha:', error);
+      toast.error('Não foi possível enviar o email de redefinição. Tente novamente.');
+      throw error;
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Senha atualizada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error);
+      toast.error('Não foi possível atualizar sua senha. Tente novamente.');
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      isLoading, 
+      login, 
+      register, 
+      logout, 
+      resetPassword,
+      updatePassword
+    }}>
       {children}
     </AuthContext.Provider>
   );

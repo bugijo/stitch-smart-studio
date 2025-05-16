@@ -4,7 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 // Schema para validação do formulário de login
 const loginSchema = z.object({
@@ -31,15 +33,22 @@ const registerSchema = z.object({
   path: ['confirmPassword'],
 });
 
+// Schema para validação do formulário de recuperação de senha
+const resetPasswordSchema = z.object({
+  email: z.string().email('Digite um email válido'),
+});
+
 // Tipos para os formulários
 type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
+type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const { user, login, register } = useAuth();
 
   // Se o usuário já estiver autenticado, redireciona para a página inicial
@@ -68,6 +77,14 @@ export default function Auth() {
     },
   });
 
+  // Formulário de recuperação de senha
+  const resetPasswordForm = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      email: '',
+    },
+  });
+
   // Função para lidar com o envio do formulário de login
   const onLoginSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
@@ -92,6 +109,32 @@ export default function Auth() {
     }
   };
 
+  // Função para lidar com o envio do formulário de recuperação de senha
+  const onResetPasswordSubmit = async (values: ResetPasswordFormValues) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Email enviado com instruções para redefinir sua senha');
+      setIsForgotPassword(false);
+      setIsLogin(true);
+    } catch (error: any) {
+      console.error("Erro na recuperação de senha:", error);
+      toast.error('Não foi possível enviar o email de recuperação de senha');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Voltar para a tela de login a partir da tela de recuperação de senha
+  const handleBackToLogin = () => {
+    setIsForgotPassword(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
@@ -102,18 +145,75 @@ export default function Auth() {
                 <div className="w-8 h-8 rounded-full bg-white"></div>
               </div>
             </div>
-            <CardTitle className="text-2xl font-display">
-              {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
-            </CardTitle>
-            <CardDescription>
-              {isLogin 
-                ? 'Entre com suas credenciais para acessar sua conta' 
-                : 'Preencha os campos abaixo para se cadastrar'}
-            </CardDescription>
+            {isForgotPassword ? (
+              <>
+                <CardTitle className="text-2xl font-display">
+                  Recuperar senha
+                </CardTitle>
+                <CardDescription>
+                  Digite seu email e enviaremos instruções para redefinir sua senha
+                </CardDescription>
+              </>
+            ) : (
+              <>
+                <CardTitle className="text-2xl font-display">
+                  {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
+                </CardTitle>
+                <CardDescription>
+                  {isLogin 
+                    ? 'Entre com suas credenciais para acessar sua conta' 
+                    : 'Preencha os campos abaixo para se cadastrar'}
+                </CardDescription>
+              </>
+            )}
           </CardHeader>
 
           <CardContent>
-            {isLogin ? (
+            {isForgotPassword ? (
+              <Form {...resetPasswordForm}>
+                <form onSubmit={resetPasswordForm.handleSubmit(onResetPasswordSubmit)} className="space-y-4">
+                  <FormField
+                    control={resetPasswordForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <div className="relative">
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              placeholder="seu@email.com" 
+                              type="email" 
+                              className="pl-10"
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex flex-col space-y-2">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      className="flex items-center justify-start gap-2 w-fit px-0"
+                      onClick={handleBackToLogin}
+                      disabled={isLoading}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Voltar para o login
+                    </Button>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Enviando..." : "Enviar instruções"}
+                  </Button>
+                </form>
+              </Form>
+            ) : isLogin ? (
               <Form {...loginForm}>
                 <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
                   <FormField
@@ -197,7 +297,13 @@ export default function Auth() {
                       )}
                     />
                     <div className="flex-1 text-right">
-                      <Button variant="link" className="p-0 h-auto" disabled={isLoading}>
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto" 
+                        disabled={isLoading} 
+                        onClick={() => setIsForgotPassword(true)} 
+                        type="button"
+                      >
                         Esqueceu a senha?
                       </Button>
                     </div>
@@ -336,25 +442,27 @@ export default function Auth() {
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-center">
-            <div className="text-center">
-              {isLogin ? (
-                <p className="text-sm text-muted-foreground">
-                  Não tem uma conta?{' '}
-                  <Button variant="link" className="p-0 h-auto" onClick={() => setIsLogin(false)} disabled={isLoading}>
-                    Cadastre-se
-                  </Button>
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Já tem uma conta?{' '}
-                  <Button variant="link" className="p-0 h-auto" onClick={() => setIsLogin(true)} disabled={isLoading}>
-                    Entrar
-                  </Button>
-                </p>
-              )}
-            </div>
-          </CardFooter>
+          {!isForgotPassword && (
+            <CardFooter className="flex justify-center">
+              <div className="text-center">
+                {isLogin ? (
+                  <p className="text-sm text-muted-foreground">
+                    Não tem uma conta?{' '}
+                    <Button variant="link" className="p-0 h-auto" onClick={() => setIsLogin(false)} disabled={isLoading}>
+                      Cadastre-se
+                    </Button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Já tem uma conta?{' '}
+                    <Button variant="link" className="p-0 h-auto" onClick={() => setIsLogin(true)} disabled={isLoading}>
+                      Entrar
+                    </Button>
+                  </p>
+                )}
+              </div>
+            </CardFooter>
+          )}
         </Card>
       </div>
     </div>
