@@ -37,14 +37,35 @@ export default function PopularPatterns() {
             designer_id,
             category_id,
             difficulty_id,
-            profiles(name),
-            categories(name),
-            difficulty_levels(name)
+            categories (name),
+            difficulty_levels (name)
           `)
           .eq('is_public', true)
           .limit(4);
         
         if (patternsError) throw patternsError;
+
+        // Buscar informações dos designers (profiles)
+        let designerData = {};
+        if (patternsData) {
+          const designerIds = patternsData
+            .filter(pattern => pattern.designer_id)
+            .map(pattern => pattern.designer_id);
+            
+          if (designerIds.length > 0) {
+            const { data: designersData, error: designersError } = await supabase
+              .from('profiles')
+              .select('id, name')
+              .in('id', designerIds);
+            
+            if (!designersError && designersData) {
+              designerData = designersData.reduce((acc, profile) => {
+                acc[profile.id] = profile.name;
+                return acc;
+              }, {});
+            }
+          }
+        }
 
         // Se o usuário estiver logado, buscar favoritos
         let favorites: string[] = [];
@@ -64,7 +85,7 @@ export default function PopularPatterns() {
           const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
             id: pattern.id,
             title: pattern.title,
-            designer: pattern.profiles?.name || "Designer desconhecido",
+            designer: pattern.designer_id ? (designerData[pattern.designer_id] || "Designer desconhecido") : "Designer desconhecido",
             category: pattern.categories?.name || "Sem categoria",
             difficulty: (pattern.difficulty_levels?.name as "Iniciante" | "Intermediário" | "Avançado") || "Iniciante",
             imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
