@@ -17,8 +17,8 @@ export default function PatternDetail() {
   const { id } = useParams<{ id: string }>();
   const [patternData, setPatternData] = useState<any>(null);
   const [designerProfile, setDesignerProfile] = useState<{ id: string; name: string; avatar_url?: string } | null>(null);
-  const [materials, setMaterials] = useState([]);
-  const [steps, setSteps] = useState([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [steps, setSteps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const { user } = useAuth();
@@ -195,6 +195,7 @@ export default function PatternDetail() {
             {/* Designer info */}
             <div className="flex items-center gap-3 mb-6">
               <Avatar>
+                <AvatarImage src={designerProfile?.avatar_url || ""} />
                 <AvatarFallback>
                   {designerName.charAt(0).toUpperCase()}
                 </AvatarFallback>

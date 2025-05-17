@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -14,7 +15,7 @@ interface Material {
   alternatives: Json | null;
 }
 
-interface PatternMaterialsProps {
+export interface PatternMaterialsProps {
   materials?: Material[];
   patternId?: string;
 }

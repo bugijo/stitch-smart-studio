@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -32,8 +33,8 @@ const Catalog = () => {
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [difficultyFilter, setDifficultyFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [difficulties, setDifficulties] = useState<{ id: string; name: string }[]>([]);
   const { user } = useAuth();
@@ -177,8 +178,8 @@ const Catalog = () => {
   const filteredPatterns = patterns.filter(pattern => {
     const matchesSearch = pattern.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           pattern.designer.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter ? pattern.category === categoryFilter : true;
-    const matchesDifficulty = difficultyFilter ? pattern.difficulty === difficultyFilter : true;
+    const matchesCategory = categoryFilter === 'all' ? true : pattern.category === categoryFilter;
+    const matchesDifficulty = difficultyFilter === 'all' ? true : pattern.difficulty === difficultyFilter;
     
     return matchesSearch && matchesCategory && matchesDifficulty;
   });
@@ -208,7 +209,7 @@ const Catalog = () => {
                   <SelectValue placeholder="Todas categorias" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas categorias</SelectItem>
+                  <SelectItem value="all">Todas categorias</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.name}>
                       {category.name}
@@ -225,7 +226,7 @@ const Catalog = () => {
                   <SelectValue placeholder="Todos níveis" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos níveis</SelectItem>
+                  <SelectItem value="all">Todos níveis</SelectItem>
                   {difficulties.map((difficulty) => (
                     <SelectItem key={difficulty.id} value={difficulty.name}>
                       {difficulty.name}
@@ -235,13 +236,13 @@ const Catalog = () => {
               </Select>
             </div>
             
-            {(categoryFilter || difficultyFilter || searchTerm) && (
+            {(categoryFilter !== 'all' || difficultyFilter !== 'all' || searchTerm) && (
               <Button 
                 variant="outline" 
                 onClick={() => {
                   setSearchTerm('');
-                  setCategoryFilter('');
-                  setDifficultyFilter('');
+                  setCategoryFilter('all');
+                  setDifficultyFilter('all');
                 }}
               >
                 Limpar filtros
@@ -271,8 +272,8 @@ const Catalog = () => {
                   variant="outline" 
                   onClick={() => {
                     setSearchTerm('');
-                    setCategoryFilter('');
-                    setDifficultyFilter('');
+                    setCategoryFilter('all');
+                    setDifficultyFilter('all');
                   }}
                 >
                   Limpar filtros
