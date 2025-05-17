@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,24 @@ import { Search, Menu, User, Heart, LogIn } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/context/AuthContext';
+
+export const navItems = [
+  {
+    title: "Início",
+    href: "/",
+    active: (pathname: string) => pathname === "/"
+  },
+  {
+    title: "Catálogo",
+    href: "/patterns",
+    active: (pathname: string) => pathname === "/patterns" || pathname.startsWith("/patterns/")
+  },
+  {
+    title: "Favoritos",
+    href: "/favorites",
+    active: (pathname: string) => pathname === "/favorites"
+  }
+];
 
 export default function Header() {
   const isMobile = useIsMobile();
