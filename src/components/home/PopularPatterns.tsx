@@ -45,7 +45,7 @@ export default function PopularPatterns() {
         
         if (patternsError) throw patternsError;
 
-        // Buscar informações dos designers (profiles)
+        // Buscar informações dos designers (profiles) separadamente
         let designerData = {};
         if (patternsData) {
           const designerIds = patternsData
