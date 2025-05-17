@@ -17,12 +17,13 @@ import Profile from "./pages/Profile";
 import Search from "./pages/Search";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
-// Novas páginas
+// Páginas
 import Learn from "./pages/Learn";
 import Community from "./pages/Community";
 import Market from "./pages/Market";
 import Register from "./pages/Register";
 import UserProfile from "./pages/UserProfile";
+import Models from "./pages/Models";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => {
               <Route path="/cadastro" element={<Register />} />
               <Route path="/search" element={<Search />} />
               <Route path="/patterns" element={<Catalog />} />
+              <Route path="/models" element={<Models />} />
               <Route path="/patterns/:id" element={<PatternDetail />} />
               <Route path="/patterns/:id/steps" element={
                 <ProtectedRoute>
@@ -58,7 +60,7 @@ const App = () => {
                 </ProtectedRoute>
               } />
               
-              {/* Novas rotas */}
+              {/* Rotas */}
               <Route path="/aprenda" element={<Learn />} />
               <Route path="/aprenda/:id" element={<PatternDetail />} />
               <Route path="/comunidade" element={<Community />} />

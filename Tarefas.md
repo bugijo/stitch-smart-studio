@@ -26,7 +26,8 @@
 - [x] Desenvolver mercado de produtos digitais
 - [x] Criar sistema de cadastro e perfil melhorado
 - [x] Implementar página "Aprenda" com tutoriais e filtros
-- [ ] Melhorar página inicial com seções explicativas
+- [x] Restaurar página inicial estilo Instagram
+- [x] Criar página de modelos com filtros por tipo
 - [ ] Desenvolver sistema de comentários em projetos
 - [ ] Implementar sistema de avaliações para produtos
 

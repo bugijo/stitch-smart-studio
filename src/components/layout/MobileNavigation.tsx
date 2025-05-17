@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Users, ShoppingBag, User } from 'lucide-react';
+import { Home, BookOpen, Users, ShoppingBag, User, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,10 +10,10 @@ export default function MobileNavigation() {
   const { user } = useAuth();
   
   const navigationItems = [
-    { name: 'Início', path: '/', icon: Home },
-    { name: 'Aprenda', path: '/aprenda', icon: BookOpen },
+    { name: 'Início', path: '/home', icon: Home },
+    { name: 'Modelos', path: '/models', icon: BookOpen },
+    { name: 'Explorar', path: '/search', icon: Search },
     { name: 'Comunidade', path: '/comunidade', icon: Users },
-    { name: 'Mercado', path: '/mercado', icon: ShoppingBag },
   ];
 
   return (
