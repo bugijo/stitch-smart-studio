@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, ShoppingBag, BookOpen, Users, Home } from "lucide-react";
 
 const Header = () => {
   const { user, signOut } = useAuth();
@@ -15,20 +15,28 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-background border-b py-4">
+    <header className="bg-background border-b py-4 sticky top-0 z-50">
       <div className="container flex justify-between items-center">
         <div className="flex items-center gap-6">
-          <Link to="/" className="font-semibold text-lg">CrochêLab</Link>
+          <Link to="/" className="font-display font-semibold text-xl">Artesanato<span className="text-primary">Lab</span></Link>
           
-          <nav className="hidden md:flex items-center gap-4">
-            <Link to="/patterns" className="text-muted-foreground hover:text-foreground">
-              Catálogo
+          <nav className="hidden md:flex items-center gap-6">
+            <Link to="/" className="text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+              <Home className="w-4 h-4" />
+              <span>Início</span>
             </Link>
-            {user && (
-              <Link to="/favorites" className="text-muted-foreground hover:text-foreground">
-                Favoritos
-              </Link>
-            )}
+            <Link to="/aprenda" className="text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4" />
+              <span>Aprenda</span>
+            </Link>
+            <Link to="/comunidade" className="text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+              <Users className="w-4 h-4" />
+              <span>Comunidade</span>
+            </Link>
+            <Link to="/mercado" className="text-muted-foreground hover:text-foreground flex items-center gap-1.5">
+              <ShoppingBag className="w-4 h-4" />
+              <span>Mercado</span>
+            </Link>
           </nav>
         </div>
 
@@ -47,13 +55,13 @@ const Header = () => {
                 <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex items-center cursor-pointer">
+                  <Link to="/perfil" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
-                    Perfil
+                    Meu Perfil
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/favorites" className="flex items-center cursor-pointer">
+                  <Link to="/favoritos" className="flex items-center cursor-pointer">
                     Favoritos
                   </Link>
                 </DropdownMenuItem>
@@ -66,7 +74,7 @@ const Header = () => {
             </DropdownMenu>
           ) : (
             <Button asChild>
-              <Link to="/auth">Entrar</Link>
+              <Link to="/cadastro">Entrar / Cadastrar</Link>
             </Button>
           )}
         </div>

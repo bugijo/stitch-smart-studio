@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Search, Compass, Heart, User } from 'lucide-react';
+import { Home, BookOpen, Users, ShoppingBag, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,9 +11,9 @@ export default function MobileNavigation() {
   
   const navigationItems = [
     { name: 'Início', path: '/', icon: Home },
-    { name: 'Pesquisar', path: '/search', icon: Search },
-    { name: 'Explorar', path: '/patterns', icon: Compass },
-    { name: 'Favoritos', path: '/favorites', icon: Heart },
+    { name: 'Aprenda', path: '/aprenda', icon: BookOpen },
+    { name: 'Comunidade', path: '/comunidade', icon: Users },
+    { name: 'Mercado', path: '/mercado', icon: ShoppingBag },
   ];
 
   return (
@@ -28,29 +28,29 @@ export default function MobileNavigation() {
               location.pathname === item.path ? "text-primary" : "text-muted-foreground"
             )}
           >
-            <item.icon className="w-6 h-6" />
-            <span className="text-xs">{item.name}</span>
+            <item.icon className="w-5 h-5" />
+            <span className="text-xs mt-1">{item.name}</span>
           </Link>
         ))}
         
         <Link
-          to="/profile"
+          to="/perfil"
           className={cn(
             "flex flex-col items-center py-3 px-4",
-            location.pathname === '/profile' ? "text-primary" : "text-muted-foreground"
+            location.pathname === '/perfil' ? "text-primary" : "text-muted-foreground"
           )}
         >
           {user ? (
-            <Avatar className="h-6 w-6">
+            <Avatar className="h-5 w-5">
               <AvatarImage src="" />
               <AvatarFallback>
                 {user.email?.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           ) : (
-            <User className="w-6 h-6" />
+            <User className="w-5 h-5" />
           )}
-          <span className="text-xs">Perfil</span>
+          <span className="text-xs mt-1">Perfil</span>
         </Link>
       </div>
     </div>

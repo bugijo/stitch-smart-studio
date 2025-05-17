@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import Home from "./pages/Home";
+import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Catalog from "./pages/Catalog";
@@ -15,6 +16,13 @@ import Favorites from "./pages/Favorites";
 import Profile from "./pages/Profile";
 import Search from "./pages/Search";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+
+// Novas páginas
+import Learn from "./pages/Learn";
+import Community from "./pages/Community";
+import Market from "./pages/Market";
+import Register from "./pages/Register";
+import UserProfile from "./pages/UserProfile";
 
 const queryClient = new QueryClient();
 
@@ -27,8 +35,10 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Index />} />
+              <Route path="/home" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/cadastro" element={<Register />} />
               <Route path="/search" element={<Search />} />
               <Route path="/patterns" element={<Catalog />} />
               <Route path="/patterns/:id" element={<PatternDetail />} />
@@ -47,6 +57,19 @@ const App = () => {
                   <Profile />
                 </ProtectedRoute>
               } />
+              
+              {/* Novas rotas */}
+              <Route path="/aprenda" element={<Learn />} />
+              <Route path="/aprenda/:id" element={<PatternDetail />} />
+              <Route path="/comunidade" element={<Community />} />
+              <Route path="/mercado" element={<Market />} />
+              <Route path="/mercado/produto/:id" element={<PatternDetail />} />
+              <Route path="/perfil" element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              } />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

@@ -1,5 +1,5 @@
 
-# CrochêLab - Planejamento de Tarefas
+# ArtesanatoLab - Planejamento de Tarefas
 
 ## Fase 1: Fundação e MVP
 - [x] Criar estrutura básica do projeto
@@ -20,7 +20,17 @@
 - [x] Adicionar anotações por passo
 - [x] Criar contador de pontos interativo
 
-## Fase 3: Importação e IA
+## Fase 3: Novo Design e Funcionalidades
+- [x] Redesenhar interface com identidade visual acolhedora
+- [x] Implementar página de comunidade com feed de projetos
+- [x] Desenvolver mercado de produtos digitais
+- [x] Criar sistema de cadastro e perfil melhorado
+- [x] Implementar página "Aprenda" com tutoriais e filtros
+- [ ] Melhorar página inicial com seções explicativas
+- [ ] Desenvolver sistema de comentários em projetos
+- [ ] Implementar sistema de avaliações para produtos
+
+## Fase 4: Importação e IA
 - [ ] Implementar upload de PDFs
 - [ ] Integrar OCR básico (Tesseract/AWS Textract)
 - [ ] Desenvolver extração de imagens de PDFs
@@ -29,7 +39,7 @@
 - [ ] Criar interface de revisão de importação
 - [ ] Implementar sistema de publicação de padrões importados
 
-## Fase 4: Recursos Avançados
+## Fase 5: Recursos Avançados
 - [x] Desenvolver modo gráfico vetorial avançado
 - [x] Implementar zoom e navegação em gráficos
 - [x] Criar legendas interativas de símbolos
@@ -38,12 +48,12 @@
 - [ ] Desenvolver sincronização multi-dispositivo
 - [ ] Adicionar recursos de compartilhamento
 
-## Fase 5: Comunidade e Monetização
+## Fase 6: Comunidade e Monetização
 - [ ] Implementar perfis de designers
-- [ ] Criar sistema de avaliações e comentários
-- [ ] Desenvolver marketplace para padrões pagos
+- [ ] Melhorar sistema de avaliações e comentários
+- [x] Desenvolver marketplace para padrões pagos
 - [ ] Implementar assinaturas premium
-- [ ] Adicionar recursos de comunidade
+- [x] Adicionar recursos de comunidade
 - [ ] Criar sistema de conquistas e gamificação
 - [ ] Implementar análises e métricas
 
