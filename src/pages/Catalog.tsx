@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
@@ -78,8 +79,8 @@ export default function Catalog() {
           const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
             id: pattern.id,
             title: pattern.title,
-            designer: pattern.profiles && typeof pattern.profiles === 'object' && pattern.profiles !== null && 'name' in pattern.profiles ? 
-              pattern.profiles.name || "Designer desconhecido" : "Designer desconhecido",
+            designer: pattern.profiles && typeof pattern.profiles === 'object' && pattern.profiles !== null ? 
+              (pattern.profiles.name || "Designer desconhecido") : "Designer desconhecido",
             category: pattern.categories ? 
               (typeof pattern.categories === 'object' && pattern.categories !== null && 'name' in pattern.categories ? 
                 pattern.categories.name || "Sem categoria" : "Sem categoria") : 
@@ -203,8 +204,7 @@ export default function Catalog() {
               <PatternCard 
                 key={pattern.id} 
                 pattern={pattern} 
-                onFavoriteToggle={() => handleFavoriteToggle(pattern.id)}
-                isFavorite={favorites.includes(pattern.id)}
+                onFavoriteToggle={handleFavoriteToggle}
               />
             ))}
           </div>

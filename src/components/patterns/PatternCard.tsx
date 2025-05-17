@@ -21,9 +21,10 @@ interface Pattern {
 
 interface PatternCardProps {
   pattern: Pattern;
+  onFavoriteToggle?: (patternId: string) => Promise<void>;
 }
 
-export default function PatternCard({ pattern }: PatternCardProps) {
+export default function PatternCard({ pattern, onFavoriteToggle }: PatternCardProps) {
   const [isFavorite, setIsFavorite] = useState(pattern.isFavorite);
   const { user } = useAuth();
   
@@ -45,24 +46,30 @@ export default function PatternCard({ pattern }: PatternCardProps) {
     }
     
     try {
-      if (isFavorite) {
-        // Remove from favorites
-        await supabase
-          .from('favorites')
-          .delete()
-          .match({ user_id: user.id, pattern_id: pattern.id });
-        
-        toast.success("Removido dos favoritos");
+      if (onFavoriteToggle) {
+        // Use parent component's handler if provided
+        await onFavoriteToggle(pattern.id);
       } else {
-        // Add to favorites
-        await supabase
-          .from('favorites')
-          .insert({ user_id: user.id, pattern_id: pattern.id });
+        // Default behavior
+        if (isFavorite) {
+          // Remove from favorites
+          await supabase
+            .from('favorites')
+            .delete()
+            .match({ user_id: user.id, pattern_id: pattern.id });
+          
+          toast.success("Removido dos favoritos");
+        } else {
+          // Add to favorites
+          await supabase
+            .from('favorites')
+            .insert({ user_id: user.id, pattern_id: pattern.id });
+          
+          toast.success("Adicionado aos favoritos");
+        }
         
-        toast.success("Adicionado aos favoritos");
+        setIsFavorite(!isFavorite);
       }
-      
-      setIsFavorite(!isFavorite);
     } catch (error) {
       console.error("Erro ao atualizar favorito:", error);
       toast.error("Ocorreu um erro ao atualizar favorito");

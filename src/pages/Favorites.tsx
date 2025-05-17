@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -60,8 +61,8 @@ export default function Favorites() {
             return {
               id: pattern.id,
               title: pattern.title,
-              designer: pattern.profiles && typeof pattern.profiles === 'object' && pattern.profiles !== null && 'name' in pattern.profiles ? 
-                pattern.profiles.name || "Designer desconhecido" : "Designer desconhecido",
+              designer: pattern.profiles && typeof pattern.profiles === 'object' && pattern.profiles !== null ? 
+                (pattern.profiles.name || "Designer desconhecido") : "Designer desconhecido",
               category: pattern.categories ? 
                 (typeof pattern.categories === 'object' && pattern.categories !== null && 'name' in pattern.categories ? 
                   pattern.categories.name || "Sem categoria" : "Sem categoria") : 
