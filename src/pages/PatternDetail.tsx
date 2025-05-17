@@ -85,10 +85,8 @@ export default function PatternDetail() {
             description: patternData.description || '',
             designer: {
               id: patternData.designer_id || '',
-              name: patternData.profiles ? 
-                (typeof patternData.profiles === 'object' && patternData.profiles !== null && 'name' in patternData.profiles ? 
-                  patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido') : 
-                'Designer desconhecido'
+              name: patternData.profiles && typeof patternData.profiles === 'object' && patternData.profiles !== null && 'name' in patternData.profiles ? 
+                patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
             },
             category: {
               id: patternData.category_id || '',

@@ -128,7 +128,11 @@ export default function Profile() {
                 <Button variant="outline" className="w-full justify-start" disabled>
                   Meus Projetos
                 </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={handleSignOut} variant="destructive">
+                <Button 
+                  onClick={handleSignOut} 
+                  className="w-full justify-start"
+                  variant="destructive"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </Button>
