@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
@@ -85,15 +84,15 @@ export default function PatternDetail() {
             description: patternData.description || '',
             designer: {
               id: patternData.designer_id || '',
-              name: patternData.profiles?.name || 'Designer desconhecido'
+              name: patternData.profiles ? patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
             },
             category: {
               id: patternData.category_id || '',
-              name: patternData.categories?.name || 'Sem categoria'
+              name: patternData.categories ? patternData.categories.name || 'Sem categoria' : 'Sem categoria'
             },
             difficulty: {
               id: patternData.difficulty_id || '',
-              name: patternData.difficulty_levels?.name || 'Iniciante'
+              name: patternData.difficulty_levels ? patternData.difficulty_levels.name || 'Iniciante' : 'Iniciante'
             },
             imageUrl: patternData.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
             isFavorite: false
@@ -280,3 +279,16 @@ export default function PatternDetail() {
     </div>
   );
 }
+
+function getDifficultyColor(difficulty: string) {
+  switch(difficulty) {
+    case 'Iniciante': return 'bg-green-100 text-green-800';
+    case 'Intermediário': return 'bg-amber-100 text-amber-800';
+    case 'Avançado': return 'bg-red-100 text-red-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+}
+
+function toggleFavorite() {}
+
+function startProject() {}

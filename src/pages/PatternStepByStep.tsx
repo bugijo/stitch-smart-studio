@@ -33,6 +33,7 @@ interface UserProject {
   current_step: number;
   progress: number;
   notes: string | null;
+  is_completed?: boolean;
 }
 
 export default function PatternStepByStep() {
@@ -263,11 +264,11 @@ export default function PatternStepByStep() {
       
       toast.success('Parabéns! Projeto marcado como concluído');
       
-      // Update state
+      // Update state with type safety
       setUserProject({
         ...userProject,
-        is_completed: true,
-        progress: 100
+        progress: 100,
+        is_completed: true
       });
     } catch (error) {
       console.error('Erro ao marcar como concluído:', error);
@@ -358,7 +359,7 @@ export default function PatternStepByStep() {
           <div className="mb-8">
             <Card className="p-6">
               <h2 className="text-xl font-medium mb-2">
-                Passo {currentStep.step_order}: {steps.length} de {steps.length}
+                Passo {currentStep.step_order}: {currentStepIndex + 1} de {steps.length}
               </h2>
               {currentStep.stitch_count && (
                 <p className="text-sm text-muted-foreground mb-2">

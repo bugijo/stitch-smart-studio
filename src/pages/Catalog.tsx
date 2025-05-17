@@ -60,58 +60,62 @@ export default function Catalog() {
     const fetchPatterns = async () => {
       setIsLoading(true);
       
-      let query = supabase
-        .from('patterns')
-        .select(`
-          id,
-          title,
-          cover_image_url,
-          designer_id,
-          category_id,
-          difficulty_id,
-          categories (id, name),
-          difficulty_levels (id, name),
-          profiles (id, name)
-        `, { count: 'exact' })
-        .eq('is_public', true)
-        .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
-      
-      // Apply filters
-      if (searchQuery) {
-        query = query.ilike('title', `%${searchQuery}%`);
-      }
-      
-      if (selectedCategory) {
-        query = query.eq('category_id', selectedCategory);
-      }
-      
-      if (selectedDifficulty) {
-        query = query.eq('difficulty_id', selectedDifficulty);
-      }
-      
-      const { data: patternsData, count } = await query;
-      
-      // Calculate total pages
-      if (count !== null) {
-        setTotalPages(Math.ceil(count / pageSize));
-      }
-      
-      // Transform data for display
-      if (patternsData) {
-        const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
-          id: pattern.id,
-          title: pattern.title,
-          designer: pattern.profiles?.name || "Designer desconhecido",
-          category: pattern.categories?.name || "Sem categoria",
-          difficulty: pattern.difficulty_levels?.name || "Iniciante",
-          imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
-          isFavorite: false // Will be updated later
-        }));
+      try {
+        let query = supabase
+          .from('patterns')
+          .select(`
+            id,
+            title,
+            cover_image_url,
+            designer_id,
+            category_id,
+            difficulty_id,
+            categories (id, name),
+            difficulty_levels (id, name),
+            profiles (id, name)
+          `, { count: 'exact' })
+          .eq('is_public', true)
+          .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
         
-        setPatterns(formattedPatterns);
+        // Apply filters
+        if (searchQuery) {
+          query = query.ilike('title', `%${searchQuery}%`);
+        }
+        
+        if (selectedCategory) {
+          query = query.eq('category_id', selectedCategory);
+        }
+        
+        if (selectedDifficulty) {
+          query = query.eq('difficulty_id', selectedDifficulty);
+        }
+        
+        const { data: patternsData, count } = await query;
+        
+        // Calculate total pages
+        if (count !== null) {
+          setTotalPages(Math.ceil(count / pageSize));
+        }
+        
+        // Transform data for display
+        if (patternsData) {
+          const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
+            id: pattern.id,
+            title: pattern.title,
+            designer: pattern.profiles ? pattern.profiles.name || "Designer desconhecido" : "Designer desconhecido",
+            category: pattern.categories ? pattern.categories.name || "Sem categoria" : "Sem categoria",
+            difficulty: pattern.difficulty_levels ? pattern.difficulty_levels.name || "Iniciante" : "Iniciante",
+            imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
+            isFavorite: false // Will be updated later
+          }));
+          
+          setPatterns(formattedPatterns);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar padrões:', error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
     fetchPatterns();

@@ -61,9 +61,9 @@ export default function Favorites() {
             return {
               id: pattern.id,
               title: pattern.title,
-              designer: pattern.profiles?.name || "Designer desconhecido",
-              category: pattern.categories?.name || "Sem categoria",
-              difficulty: pattern.difficulty_levels?.name || "Iniciante",
+              designer: pattern.profiles ? pattern.profiles.name || "Designer desconhecido" : "Designer desconhecido",
+              category: pattern.categories ? pattern.categories.name || "Sem categoria" : "Sem categoria",
+              difficulty: pattern.difficulty_levels ? pattern.difficulty_levels.name || "Iniciante" : "Iniciante",
               imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
               isFavorite: true
             };

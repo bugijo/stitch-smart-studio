@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
+import { Json } from '@/integrations/supabase/types';
 
 interface Material {
   id: string;
@@ -11,7 +12,7 @@ interface Material {
   quantity: string;
   brand: string | null;
   color: string | null;
-  alternatives: any[] | null;
+  alternatives: Json | null;
 }
 
 interface PatternMaterialsProps {
@@ -35,7 +36,7 @@ export default function PatternMaterials({ patternId }: PatternMaterialsProps) {
         if (error) throw error;
         
         if (data) {
-          setMaterials(data);
+          setMaterials(data as Material[]);
         }
       } catch (error) {
         console.error('Erro ao buscar materiais:', error);
