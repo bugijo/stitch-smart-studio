@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -75,14 +74,12 @@ const Catalog = () => {
             difficulty_id,
             designer_id,
             categories (name),
-            difficulty_levels (name),
-            profiles (id, name)
+            difficulty_levels (name)
           `)
           .eq('is_public', true);
         
         if (error) throw error;
 
-        // Se o usuário estiver logado, buscar favoritos
         let favorites: string[] = [];
         if (user) {
           const { data: favoritesData } = await supabase
@@ -94,21 +91,41 @@ const Catalog = () => {
             favorites = favoritesData.map(fav => fav.pattern_id);
           }
         }
-
+        
         if (data) {
-          const formattedPatterns: Pattern[] = data.map(pattern => ({
-            id: pattern.id,
-            title: pattern.title,
-            designer: {
-              id: pattern.designer_id || '',
-              // Safely handle potentially null profiles
-              name: pattern.profiles ? pattern.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
-            },
-            category: pattern.categories?.name || 'Sem categoria',
-            difficulty: pattern.difficulty_levels?.name || 'Iniciante',
-            imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
-            isFavorite: favorites.includes(pattern.id)
-          }));
+          const designerIds = [...new Set(data.map(p => p.designer_id).filter(Boolean))];
+          
+          const { data: designersData } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', designerIds);
+          
+          const designersMap = new Map();
+          if (designersData) {
+            designersData.forEach(designer => {
+              designersMap.set(designer.id, {
+                id: designer.id,
+                name: designer.name || 'Designer desconhecido',
+              });
+            });
+          }
+
+          const formattedPatterns: Pattern[] = data.map(pattern => {
+            let designer = { id: '', name: 'Designer desconhecido' };
+            if (pattern.designer_id && designersMap.has(pattern.designer_id)) {
+              designer = designersMap.get(pattern.designer_id);
+            }
+            
+            return {
+              id: pattern.id,
+              title: pattern.title,
+              designer: designer,
+              category: pattern.categories?.name || 'Sem categoria',
+              difficulty: pattern.difficulty_levels?.name || 'Iniciante',
+              imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
+              isFavorite: favorites.includes(pattern.id)
+            };
+          });
           
           setPatterns(formattedPatterns);
         }
@@ -134,7 +151,6 @@ const Catalog = () => {
     
     try {
       if (pattern.isFavorite) {
-        // Remover dos favoritos
         await supabase
           .from('favorites')
           .delete()
@@ -142,7 +158,6 @@ const Catalog = () => {
         
         toast.success("Removido dos favoritos");
       } else {
-        // Adicionar aos favoritos
         await supabase
           .from('favorites')
           .insert({ user_id: user.id, pattern_id: patternId });
@@ -150,7 +165,6 @@ const Catalog = () => {
         toast.success("Adicionado aos favoritos");
       }
       
-      // Atualizar estado local
       setPatterns(patterns.map(p => 
         p.id === patternId ? { ...p, isFavorite: !p.isFavorite } : p
       ));

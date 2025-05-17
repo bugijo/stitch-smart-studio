@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +30,7 @@ export default function Home() {
       setIsLoading(true);
       
       try {
+        // Modify the query to not include profiles join since there's an error with the relation
         const { data, error } = await supabase
           .from('patterns')
           .select(`
@@ -39,8 +39,7 @@ export default function Home() {
             description,
             cover_image_url,
             created_at,
-            designer_id,
-            profiles (id, name)
+            designer_id
           `)
           .order('created_at', { ascending: false })
           .limit(10);
@@ -48,19 +47,44 @@ export default function Home() {
         if (error) throw error;
         
         if (data) {
-          const formattedPatterns = data.map(pattern => ({
-            id: pattern.id,
-            title: pattern.title,
-            designer: {
-              id: pattern.designer_id || '',
-              // Safely handle potentially null profiles
-              name: pattern.profiles ? pattern.profiles.name || 'Designer desconhecido' : 'Designer desconhecido',
-              avatar: ''
-            },
-            imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
-            description: pattern.description || '',
-            createdAt: pattern.created_at
-          }));
+          // Get unique designer IDs to fetch their profiles separately
+          const designerIds = [...new Set(data.map(p => p.designer_id).filter(Boolean))];
+          
+          // Fetch designer profiles separately
+          const { data: designersData } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url')
+            .in('id', designerIds);
+          
+          // Create a map of designer profiles for easy lookup
+          const designersMap = new Map();
+          if (designersData) {
+            designersData.forEach(designer => {
+              designersMap.set(designer.id, {
+                id: designer.id,
+                name: designer.name || 'Designer desconhecido',
+                avatar: designer.avatar_url
+              });
+            });
+          }
+          
+          // Map patterns with their designers
+          const formattedPatterns = data.map(pattern => {
+            // Find the designer for this pattern
+            let designer = { id: '', name: 'Designer desconhecido', avatar: '' };
+            if (pattern.designer_id && designersMap.has(pattern.designer_id)) {
+              designer = designersMap.get(pattern.designer_id);
+            }
+            
+            return {
+              id: pattern.id,
+              title: pattern.title,
+              designer: designer,
+              imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
+              description: pattern.description || '',
+              createdAt: pattern.created_at
+            };
+          });
           
           setFeaturedPatterns(formattedPatterns);
         }

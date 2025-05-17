@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 export default function PatternDetail() {
   const { id } = useParams<{ id: string }>();
   const [patternData, setPatternData] = useState<any>(null);
+  const [designerProfile, setDesignerProfile] = useState<{ id: string; name: string; avatar_url?: string } | null>(null);
   const [materials, setMaterials] = useState([]);
   const [steps, setSteps] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,19 +28,31 @@ export default function PatternDetail() {
       setIsLoading(true);
       
       try {
-        // Fetch pattern details
+        // Fetch pattern details without profiles join
         const { data: patternData, error: patternError } = await supabase
           .from('patterns')
           .select(`
             *,
             categories (*),
-            difficulty_levels (*),
-            profiles (*)
+            difficulty_levels (*)
           `)
           .eq('id', id)
           .single();
         
         if (patternError) throw patternError;
+        
+        // Fetch designer profile separately if we have a designer_id
+        if (patternData && patternData.designer_id) {
+          const { data: designerData } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url')
+            .eq('id', patternData.designer_id)
+            .single();
+            
+          if (designerData) {
+            setDesignerProfile(designerData);
+          }
+        }
         
         // Fetch materials for this pattern
         const { data: materialsData, error: materialsError } = await supabase
@@ -143,7 +156,7 @@ export default function PatternDetail() {
     );
   }
   
-  const designerName = patternData.profiles ? patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido';
+  const designerName = designerProfile ? designerProfile.name || 'Designer desconhecido' : 'Designer desconhecido';
   
   return (
     <Layout>

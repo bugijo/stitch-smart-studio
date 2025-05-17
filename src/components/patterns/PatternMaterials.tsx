@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -16,46 +15,56 @@ interface Material {
 }
 
 interface PatternMaterialsProps {
-  patternId: string;
+  materials?: Material[];
+  patternId?: string;
 }
 
-export default function PatternMaterials({ patternId }: PatternMaterialsProps) {
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function PatternMaterials({ materials: initialMaterials, patternId }: PatternMaterialsProps) {
+  const [materials, setMaterials] = useState<Material[]>(initialMaterials || []);
+  const [isLoading, setIsLoading] = useState(!initialMaterials && Boolean(patternId));
 
   useEffect(() => {
-    const fetchMaterials = async () => {
-      setIsLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('materials')
-          .select('*')
-          .eq('pattern_id', patternId);
-        
-        if (error) throw error;
-        
-        if (data) {
-          // Type assertion to ensure data matches our Material interface
-          const typedMaterials: Material[] = data.map(item => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            brand: item.brand,
-            color: item.color,
-            alternatives: item.alternatives
-          }));
-          setMaterials(typedMaterials);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar materiais:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // If materials were provided as props, use those
+    if (initialMaterials?.length) {
+      setMaterials(initialMaterials);
+      return;
+    }
     
-    fetchMaterials();
-  }, [patternId]);
+    // Otherwise, if patternId is provided, fetch materials
+    if (patternId) {
+      const fetchMaterials = async () => {
+        setIsLoading(true);
+        
+        try {
+          const { data, error } = await supabase
+            .from('materials')
+            .select('*')
+            .eq('pattern_id', patternId);
+          
+          if (error) throw error;
+          
+          if (data) {
+            // Type assertion to ensure data matches our Material interface
+            const typedMaterials: Material[] = data.map(item => ({
+              id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              brand: item.brand,
+              color: item.color,
+              alternatives: item.alternatives
+            }));
+            setMaterials(typedMaterials);
+          }
+        } catch (error) {
+          console.error('Erro ao buscar materiais:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchMaterials();
+    }
+  }, [patternId, initialMaterials]);
 
   if (isLoading) {
     return (

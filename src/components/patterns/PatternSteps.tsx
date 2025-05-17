@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,39 +15,55 @@ interface Step {
 }
 
 interface PatternStepsProps {
-  patternId: string;
+  steps?: Step[];
+  patternId?: string;
+  showPreview?: boolean;
   onStepComplete?: (step: number, totalSteps: number) => void;
 }
 
-export default function PatternSteps({ patternId, onStepComplete }: PatternStepsProps) {
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function PatternSteps({ 
+  steps: initialSteps, 
+  patternId, 
+  showPreview = false,
+  onStepComplete 
+}: PatternStepsProps) {
+  const [steps, setSteps] = useState<Step[]>(initialSteps || []);
+  const [isLoading, setIsLoading] = useState(!initialSteps && Boolean(patternId));
 
   useEffect(() => {
-    const fetchSteps = async () => {
-      setIsLoading(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('steps')
-          .select('*')
-          .eq('pattern_id', patternId)
-          .order('step_order', { ascending: true });
-        
-        if (error) throw error;
-        
-        if (data) {
-          setSteps(data);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar passos:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // If steps were provided as props, use those
+    if (initialSteps?.length) {
+      setSteps(initialSteps);
+      return;
+    }
     
-    fetchSteps();
-  }, [patternId]);
+    // Otherwise, if patternId is provided, fetch steps
+    if (patternId) {
+      const fetchSteps = async () => {
+        setIsLoading(true);
+        
+        try {
+          const { data, error } = await supabase
+            .from('steps')
+            .select('*')
+            .eq('pattern_id', patternId)
+            .order('step_order', { ascending: true });
+          
+          if (error) throw error;
+          
+          if (data) {
+            setSteps(data);
+          }
+        } catch (error) {
+          console.error('Erro ao buscar passos:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchSteps();
+    }
+  }, [patternId, initialSteps]);
 
   if (isLoading) {
     return (
@@ -66,9 +81,12 @@ export default function PatternSteps({ patternId, onStepComplete }: PatternSteps
     );
   }
 
+  // If showPreview is true, only show a limited number of steps
+  const stepsToShow = showPreview ? steps.slice(0, 2) : steps;
+
   return (
     <div className="space-y-6">
-      {steps.map((step) => (
+      {stepsToShow.map((step) => (
         <Card key={step.id} className="p-6">
           <h3 className="text-lg font-medium mb-2">Passo {step.step_order}</h3>
           {step.stitch_count && (

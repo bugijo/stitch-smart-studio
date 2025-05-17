@@ -51,27 +51,50 @@ export default function Favorites() {
               category_id,
               difficulty_id,
               categories (name),
-              difficulty_levels (name),
-              profiles (id, name)
+              difficulty_levels (name)
             `)
             .in('id', patternIds);
           
           if (patternsError) throw patternsError;
           
           if (patternsData) {
-            const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
-              id: pattern.id,
-              title: pattern.title,
-              designer: {
-                id: pattern.designer_id || '',
-                // Safely handle potentially null profiles
-                name: pattern.profiles ? pattern.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
-              },
-              category: pattern.categories?.name || 'Sem categoria',
-              difficulty: pattern.difficulty_levels?.name || 'Iniciante',
-              imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
-              isFavorite: true
-            }));
+            // Get unique designer IDs
+            const designerIds = [...new Set(patternsData.map(p => p.designer_id).filter(Boolean))];
+            
+            // Fetch designer profiles
+            const { data: designersData } = await supabase
+              .from('profiles')
+              .select('id, name')
+              .in('id', designerIds);
+            
+            // Create a map of designer profiles
+            const designersMap = new Map();
+            if (designersData) {
+              designersData.forEach(designer => {
+                designersMap.set(designer.id, {
+                  id: designer.id,
+                  name: designer.name || 'Designer desconhecido',
+                });
+              });
+            }
+            
+            const formattedPatterns: Pattern[] = patternsData.map(pattern => {
+              // Find the designer for this pattern
+              let designer = { id: '', name: 'Designer desconhecido' };
+              if (pattern.designer_id && designersMap.has(pattern.designer_id)) {
+                designer = designersMap.get(pattern.designer_id);
+              }
+              
+              return {
+                id: pattern.id,
+                title: pattern.title,
+                designer: designer,
+                category: pattern.categories?.name || 'Sem categoria',
+                difficulty: pattern.difficulty_levels?.name || 'Iniciante',
+                imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
+                isFavorite: true
+              };
+            });
             
             setFavoritePatterns(formattedPatterns);
           }
