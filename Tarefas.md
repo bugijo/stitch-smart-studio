@@ -5,20 +5,20 @@
 - [x] Criar estrutura básica do projeto
 - [x] Definir design system e componentes UI
 - [x] Implementar página inicial
-- [ ] Configurar autenticação com Supabase
-- [ ] Implementar catálogo básico de padrões
-- [ ] Criar visualização detalhada de padrões
-- [ ] Desenvolver modo passo a passo básico
-- [ ] Implementar sistema de favoritos
+- [x] Configurar autenticação com Supabase
+- [x] Implementar catálogo básico de padrões
+- [x] Criar visualização detalhada de padrões
+- [x] Desenvolver modo passo a passo básico
+- [x] Implementar sistema de favoritos
 
 ## Fase 2: Recursos Essenciais
-- [ ] Integrar sistema de categorias e filtros
-- [ ] Implementar visualização de gráficos simples
-- [ ] Criar sistema de materiais e lista de compras
-- [ ] Desenvolver tela de perfil do usuário
-- [ ] Implementar histórico de projetos
-- [ ] Adicionar anotações por passo
-- [ ] Criar contador de pontos interativo
+- [x] Integrar sistema de categorias e filtros
+- [x] Implementar visualização de gráficos simples
+- [x] Criar sistema de materiais e lista de compras
+- [x] Desenvolver tela de perfil do usuário
+- [x] Implementar histórico de projetos
+- [x] Adicionar anotações por passo
+- [x] Criar contador de pontos interativo
 
 ## Fase 3: Importação e IA
 - [ ] Implementar upload de PDFs
@@ -30,9 +30,9 @@
 - [ ] Implementar sistema de publicação de padrões importados
 
 ## Fase 4: Recursos Avançados
-- [ ] Desenvolver modo gráfico vetorial avançado
-- [ ] Implementar zoom e navegação em gráficos
-- [ ] Criar legendas interativas de símbolos
+- [x] Desenvolver modo gráfico vetorial avançado
+- [x] Implementar zoom e navegação em gráficos
+- [x] Criar legendas interativas de símbolos
 - [ ] Adicionar conversão de textos para gráficos com IA
 - [ ] Implementar sistema de notificações
 - [ ] Desenvolver sincronização multi-dispositivo

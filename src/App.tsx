@@ -12,6 +12,7 @@ import Catalog from "./pages/Catalog";
 import PatternDetail from "./pages/PatternDetail";
 import PatternStepByStep from "./pages/PatternStepByStep";
 import Favorites from "./pages/Favorites";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,11 @@ const App = () => {
               <Route path="/favorites" element={
                 <ProtectedRoute>
                   <Favorites />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />

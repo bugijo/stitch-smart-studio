@@ -61,9 +61,18 @@ export default function Favorites() {
             return {
               id: pattern.id,
               title: pattern.title,
-              designer: pattern.profiles ? pattern.profiles.name || "Designer desconhecido" : "Designer desconhecido",
-              category: pattern.categories ? pattern.categories.name || "Sem categoria" : "Sem categoria",
-              difficulty: pattern.difficulty_levels ? pattern.difficulty_levels.name || "Iniciante" : "Iniciante",
+              designer: pattern.profiles ? 
+                (typeof pattern.profiles === 'object' && pattern.profiles !== null && 'name' in pattern.profiles ? 
+                  pattern.profiles.name || "Designer desconhecido" : "Designer desconhecido") : 
+                "Designer desconhecido",
+              category: pattern.categories ? 
+                (typeof pattern.categories === 'object' && pattern.categories !== null && 'name' in pattern.categories ? 
+                  pattern.categories.name || "Sem categoria" : "Sem categoria") : 
+                "Sem categoria",
+              difficulty: pattern.difficulty_levels ? 
+                (typeof pattern.difficulty_levels === 'object' && pattern.difficulty_levels !== null && 'name' in pattern.difficulty_levels ? 
+                  pattern.difficulty_levels.name || "Iniciante" : "Iniciante") : 
+                "Iniciante",
               imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
               isFavorite: true
             };

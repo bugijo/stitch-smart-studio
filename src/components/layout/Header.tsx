@@ -1,107 +1,78 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Search, Menu, User, Heart, LogIn } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/context/AuthContext';
 
-export const navItems = [
-  {
-    title: "Início",
-    href: "/",
-    active: (pathname: string) => pathname === "/"
-  },
-  {
-    title: "Catálogo",
-    href: "/patterns",
-    active: (pathname: string) => pathname === "/patterns" || pathname.startsWith("/patterns/")
-  },
-  {
-    title: "Favoritos",
-    href: "/favorites",
-    active: (pathname: string) => pathname === "/favorites"
-  }
-];
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { LogOut, User } from "lucide-react";
 
-export default function Header() {
-  const isMobile = useIsMobile();
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+const Header = () => {
+  const { user, signOut } = useAuth();
 
-  const handleAuthClick = () => {
-    if (user) {
-      logout();
-    } else {
-      navigate('/auth');
-    }
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = '/auth';
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-2">
-          {isMobile && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[240px]">
-                <div className="flex flex-col gap-4 mt-8">
-                  <Link to="/" className="text-lg font-display font-medium px-2">Início</Link>
-                  <Link to="/patterns" className="text-lg font-display font-medium px-2">Catálogo</Link>
-                  <Link to="/import" className="text-lg font-display font-medium px-2">Importar PDF</Link>
-                  <Link to="/my-projects" className="text-lg font-display font-medium px-2">Meus Projetos</Link>
-                  {!user && <Link to="/auth" className="text-lg font-display font-medium px-2">Entrar / Cadastrar</Link>}
-                </div>
-              </SheetContent>
-            </Sheet>
-          )}
+    <header className="bg-background border-b py-4">
+      <div className="container flex justify-between items-center">
+        <div className="flex items-center gap-6">
+          <Link to="/" className="font-semibold text-lg">CrochêLab</Link>
           
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yarn-lavender via-yarn-sage to-yarn-terracotta flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-white"></div>
-            </div>
-            <span className="font-display text-xl font-bold">CrochêLab</span>
-          </Link>
-        </div>
-        
-        {!isMobile && (
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            <Link to="/" className="font-medium transition-colors hover:text-primary">Início</Link>
-            <Link to="/patterns" className="font-medium transition-colors hover:text-primary">Catálogo</Link>
-            <Link to="/import" className="font-medium transition-colors hover:text-primary">Importar PDF</Link>
-            <Link to="/my-projects" className="font-medium transition-colors hover:text-primary">Meus Projetos</Link>
-          </nav>
-        )}
-        
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Search className="h-5 w-5" />
-            <span className="sr-only">Pesquisar</span>
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Heart className="h-5 w-5" />
-            <span className="sr-only">Favoritos</span>
-          </Button>
-          <Button 
-            variant={user ? "outline" : "ghost"} 
-            size="icon" 
-            className={user ? "rounded-full" : ""}
-            onClick={handleAuthClick}
-          >
-            {user ? (
-              <User className="h-5 w-5" />
-            ) : (
-              <LogIn className="h-5 w-5" />
+          <nav className="hidden md:flex items-center gap-4">
+            <Link to="/patterns" className="text-muted-foreground hover:text-foreground">
+              Catálogo
+            </Link>
+            {user && (
+              <Link to="/favorites" className="text-muted-foreground hover:text-foreground">
+                Favoritos
+              </Link>
             )}
-            <span className="sr-only">{user ? "Perfil" : "Entrar"}</span>
-          </Button>
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="h-8 w-8 cursor-pointer">
+                  <AvatarImage src="" />
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="flex items-center cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/favorites" className="flex items-center cursor-pointer">
+                    Favoritos
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild>
+              <Link to="/auth">Entrar</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
   );
-}
+};
+
+export default Header;

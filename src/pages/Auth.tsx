@@ -1,468 +1,217 @@
 
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-
-// Schema para validação do formulário de login
-const loginSchema = z.object({
-  email: z.string().email('Digite um email válido'),
-  password: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres'),
-  rememberMe: z.boolean().optional(),
-});
-
-// Schema para validação do formulário de cadastro
-const registerSchema = z.object({
-  name: z.string().min(2, 'O nome precisa ter pelo menos 2 caracteres'),
-  email: z.string().email('Digite um email válido'),
-  password: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres'),
-  confirmPassword: z.string().min(6, 'A senha precisa ter pelo menos 6 caracteres'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'As senhas não coincidem',
-  path: ['confirmPassword'],
-});
-
-// Schema para validação do formulário de recuperação de senha
-const resetPasswordSchema = z.object({
-  email: z.string().email('Digite um email válido'),
-});
-
-// Tipos para os formulários
-type LoginFormValues = z.infer<typeof loginSchema>;
-type RegisterFormValues = z.infer<typeof registerSchema>;
-type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const { user, login, register } = useAuth();
-
-  // Se o usuário já estiver autenticado, redireciona para a página inicial
-  if (user) {
-    return <Navigate to="/" />;
+  const [error, setError] = useState<string | null>(null);
+  
+  // Form states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  
+  // If user is already authenticated, redirect to home
+  if (user && !authLoading) {
+    navigate('/');
+    return null;
   }
-
-  // Formulário de login
-  const loginForm = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      rememberMe: false,
-    },
-  });
-
-  // Formulário de cadastro
-  const registerForm = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-    },
-  });
-
-  // Formulário de recuperação de senha
-  const resetPasswordForm = useForm<ResetPasswordFormValues>({
-    resolver: zodResolver(resetPasswordSchema),
-    defaultValues: {
-      email: '',
-    },
-  });
-
-  // Função para lidar com o envio do formulário de login
-  const onLoginSubmit = async (values: LoginFormValues) => {
+  
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
+    setError(null);
+    
     try {
-      await login(values.email, values.password);
-      // A navegação acontecerá automaticamente no useEffect se o login for bem-sucedido
-    } catch (error) {
-      console.error("Erro no login:", error);
-      setIsLoading(false);
-    }
-  };
-
-  // Função para lidar com o envio do formulário de cadastro
-  const onRegisterSubmit = async (values: RegisterFormValues) => {
-    setIsLoading(true);
-    try {
-      await register(values.name, values.email, values.password);
-      // A navegação acontecerá automaticamente no useEffect se o cadastro for bem-sucedido
-    } catch (error) {
-      console.error("Erro no cadastro:", error);
-      setIsLoading(false);
-    }
-  };
-
-  // Função para lidar com o envio do formulário de recuperação de senha
-  const onResetPasswordSubmit = async (values: ResetPasswordFormValues) => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${window.location.origin}/auth?reset=true`,
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name || email.split('@')[0], // Use name or part of email as default name
+          },
+        },
       });
       
       if (error) throw error;
       
-      toast.success('Email enviado com instruções para redefinir sua senha');
-      setIsForgotPassword(false);
-      setIsLogin(true);
+      toast.success('Conta criada com sucesso! Verifique seu email para confirmar.');
+      
+      // In development, we might want to log the user in directly
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (!signInError) {
+        navigate('/');
+      }
     } catch (error: any) {
-      console.error("Erro na recuperação de senha:", error);
-      toast.error('Não foi possível enviar o email de recuperação de senha');
+      setError(error.message || 'Erro ao criar conta');
+      toast.error('Erro ao criar conta');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Login realizado com sucesso!');
+      navigate('/');
+    } catch (error: any) {
+      setError(error.message || 'Erro ao fazer login');
+      toast.error('Erro ao fazer login');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Voltar para a tela de login a partir da tela de recuperação de senha
-  const handleBackToLogin = () => {
-    setIsForgotPassword(false);
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted/40 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md">
-        <Card className="w-full">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yarn-lavender via-yarn-sage to-yarn-terracotta flex items-center justify-center">
-                <div className="w-8 h-8 rounded-full bg-white"></div>
-              </div>
-            </div>
-            {isForgotPassword ? (
-              <>
-                <CardTitle className="text-2xl font-display">
-                  Recuperar senha
-                </CardTitle>
-                <CardDescription>
-                  Digite seu email e enviaremos instruções para redefinir sua senha
-                </CardDescription>
-              </>
-            ) : (
-              <>
-                <CardTitle className="text-2xl font-display">
-                  {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
-                </CardTitle>
-                <CardDescription>
-                  {isLogin 
-                    ? 'Entre com suas credenciais para acessar sua conta' 
-                    : 'Preencha os campos abaixo para se cadastrar'}
-                </CardDescription>
-              </>
-            )}
-          </CardHeader>
-
-          <CardContent>
-            {isForgotPassword ? (
-              <Form {...resetPasswordForm}>
-                <form onSubmit={resetPasswordForm.handleSubmit(onResetPasswordSubmit)} className="space-y-4">
-                  <FormField
-                    control={resetPasswordForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="seu@email.com" 
-                              type="email" 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex flex-col space-y-2">
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      className="flex items-center justify-start gap-2 w-fit px-0"
-                      onClick={handleBackToLogin}
-                      disabled={isLoading}
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Voltar para o login
-                    </Button>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Enviando..." : "Enviar instruções"}
-                  </Button>
-                </form>
-              </Form>
-            ) : isLogin ? (
-              <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="seu@email.com" 
-                              type="email" 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="Sua senha" 
-                              type={showPassword ? "text" : "password"} 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-10 w-10"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex items-center space-x-2">
-                    <FormField
-                      control={loginForm.control}
-                      name="rememberMe"
-                      render={({ field }) => (
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="rememberMe"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={isLoading}
-                          />
-                          <label
-                            htmlFor="rememberMe"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            Lembrar-me
-                          </label>
-                        </div>
-                      )}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold tracking-tight">CrochêLab</h1>
+          <p className="text-muted-foreground mt-2">
+            Sua plataforma para padrões de crochê
+          </p>
+        </div>
+        
+        <Card>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="register">Cadastro</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="login">
+              <form onSubmit={handleSignIn}>
+                <CardHeader>
+                  <CardTitle>Login</CardTitle>
+                  <CardDescription>
+                    Entre com sua conta para acessar seus projetos
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input 
+                      id="email" 
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
                     />
-                    <div className="flex-1 text-right">
-                      <Button 
-                        variant="link" 
-                        className="p-0 h-auto" 
-                        disabled={isLoading} 
-                        onClick={() => setIsForgotPassword(true)} 
-                        type="button"
-                      >
-                        Esqueceu a senha?
-                      </Button>
-                    </div>
                   </div>
-
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Senha</Label>
+                    <Input 
+                      id="password" 
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+                
+                <CardFooter>
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Entrando..." : "Entrar"}
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Entrar
                   </Button>
-                </form>
-              </Form>
-            ) : (
-              <Form {...registerForm}>
-                <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
-                  <FormField
-                    control={registerForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="Seu nome completo" 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="seu@email.com" 
-                              type="email" 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Senha</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="Sua senha" 
-                              type={showPassword ? "text" : "password"} 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-10 w-10"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registerForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirmar Senha</FormLabel>
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="Confirme sua senha" 
-                              type={showConfirmPassword ? "text" : "password"} 
-                              className="pl-10"
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-10 w-10"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
+                </CardFooter>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="register">
+              <form onSubmit={handleSignUp}>
+                <CardHeader>
+                  <CardTitle>Criar conta</CardTitle>
+                  <CardDescription>
+                    Cadastre-se para começar a usar o CrochêLab
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input 
+                      id="name" 
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email-register">Email</Label>
+                    <Input 
+                      id="email-register" 
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="password-register">Senha</Label>
+                    <Input 
+                      id="password-register" 
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+                
+                <CardFooter>
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Criando conta..." : "Criar conta"}
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Cadastrar
                   </Button>
-                </form>
-              </Form>
-            )}
-          </CardContent>
-
-          {!isForgotPassword && (
-            <CardFooter className="flex justify-center">
-              <div className="text-center">
-                {isLogin ? (
-                  <p className="text-sm text-muted-foreground">
-                    Não tem uma conta?{' '}
-                    <Button variant="link" className="p-0 h-auto" onClick={() => setIsLogin(false)} disabled={isLoading}>
-                      Cadastre-se
-                    </Button>
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Já tem uma conta?{' '}
-                    <Button variant="link" className="p-0 h-auto" onClick={() => setIsLogin(true)} disabled={isLoading}>
-                      Entrar
-                    </Button>
-                  </p>
-                )}
-              </div>
-            </CardFooter>
-          )}
+                </CardFooter>
+              </form>
+            </TabsContent>
+          </Tabs>
         </Card>
       </div>
     </div>

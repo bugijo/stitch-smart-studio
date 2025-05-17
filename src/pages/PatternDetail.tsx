@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Heart, ArrowLeft, Book, ListOrdered, Share } from 'lucide-react';
 import PatternMaterials from '@/components/patterns/PatternMaterials';
 import PatternSteps from '@/components/patterns/PatternSteps';
+import PatternGraph from '@/components/patterns/PatternGraph';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -84,15 +85,24 @@ export default function PatternDetail() {
             description: patternData.description || '',
             designer: {
               id: patternData.designer_id || '',
-              name: patternData.profiles ? patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
+              name: patternData.profiles ? 
+                (typeof patternData.profiles === 'object' && patternData.profiles !== null && 'name' in patternData.profiles ? 
+                  patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido') : 
+                'Designer desconhecido'
             },
             category: {
               id: patternData.category_id || '',
-              name: patternData.categories ? patternData.categories.name || 'Sem categoria' : 'Sem categoria'
+              name: patternData.categories ? 
+                (typeof patternData.categories === 'object' && patternData.categories !== null && 'name' in patternData.categories ? 
+                  patternData.categories.name || 'Sem categoria' : 'Sem categoria') : 
+                'Sem categoria'
             },
             difficulty: {
               id: patternData.difficulty_id || '',
-              name: patternData.difficulty_levels ? patternData.difficulty_levels.name || 'Iniciante' : 'Iniciante'
+              name: patternData.difficulty_levels ? 
+                (typeof patternData.difficulty_levels === 'object' && patternData.difficulty_levels !== null && 'name' in patternData.difficulty_levels ? 
+                  patternData.difficulty_levels.name || 'Iniciante' : 'Iniciante') : 
+                'Iniciante'
             },
             imageUrl: patternData.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
             isFavorite: false
@@ -256,10 +266,14 @@ export default function PatternDetail() {
         <Tabs defaultValue="materials">
           <TabsList className="mb-6">
             <TabsTrigger value="materials">Materiais</TabsTrigger>
+            <TabsTrigger value="chart">Gráfico</TabsTrigger>
             <TabsTrigger value="instructions">Instruções</TabsTrigger>
           </TabsList>
           <TabsContent value="materials">
             <PatternMaterials patternId={pattern.id} />
+          </TabsContent>
+          <TabsContent value="chart">
+            <PatternGraph patternId={pattern.id} />
           </TabsContent>
           <TabsContent value="instructions">
             <div className="flex justify-between items-center mb-4">

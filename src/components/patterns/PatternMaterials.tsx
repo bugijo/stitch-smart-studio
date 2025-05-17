@@ -36,7 +36,16 @@ export default function PatternMaterials({ patternId }: PatternMaterialsProps) {
         if (error) throw error;
         
         if (data) {
-          setMaterials(data as Material[]);
+          // Type assertion to ensure data matches our Material interface
+          const typedMaterials: Material[] = data.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            brand: item.brand,
+            color: item.color,
+            alternatives: item.alternatives
+          }));
+          setMaterials(typedMaterials);
         }
       } catch (error) {
         console.error('Erro ao buscar materiais:', error);

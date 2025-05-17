@@ -1,28 +1,30 @@
-
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useProtectedRoute } from '@/hooks/use-protected-route';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Home, CheckCircle, XCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
+import StitchCounter from '@/components/patterns/StitchCounter';
+import { ArrowLeft, ArrowRight, Check, Flag, Home, ListChecks, Pencil, Save } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 
 interface Pattern {
   id: string;
   title: string;
+  imageUrl: string;
 }
 
 interface Step {
   id: string;
-  step_order: number;
   description: string;
+  step_order: number;
   image_url: string | null;
   notes: string | null;
   stitch_count: number | null;
@@ -33,259 +35,297 @@ interface UserProject {
   current_step: number;
   progress: number;
   notes: string | null;
-  is_completed?: boolean;
+  started_at: string;
+  last_updated_at: string;
+  is_completed: boolean;
+}
+
+interface UserNote {
+  id: string;
+  content: string;
+  step_id: string;
 }
 
 export default function PatternStepByStep() {
+  useProtectedRoute(); // Protect this route
+  const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  
+  // State
   const [pattern, setPattern] = useState<Pattern | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
-  const [userProject, setUserProject] = useState<UserProject | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [userNotes, setUserNotes] = useState('');
+  const [project, setProject] = useState<UserProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [userNotes, setUserNotes] = useState<Record<string, string>>({});
+  const [editingNote, setEditingNote] = useState(false);
+  const [currentNote, setCurrentNote] = useState('');
+  const [stitchCount, setStitchCount] = useState(0);
 
-  // Calculate progress percentage
-  const progressPercentage = steps.length > 0 
-    ? Math.round(((currentStepIndex + 1) / steps.length) * 100) 
-    : 0;
-
+  // Current step
+  const currentStep = steps[currentStepIndex];
+  
   useEffect(() => {
-    // Redirect if not logged in
-    if (!user) {
-      toast.error('Você precisa fazer login para acessar o modo passo a passo');
-      window.location.href = `/patterns/${id}`;
-      return;
-    }
-    
-    const fetchData = async () => {
+    const fetchPatternAndSteps = async () => {
+      if (!id || !user) return;
       setIsLoading(true);
       
       try {
         // Fetch pattern details
         const { data: patternData, error: patternError } = await supabase
           .from('patterns')
-          .select('id, title')
+          .select('id, title, cover_image_url')
           .eq('id', id)
           .single();
         
         if (patternError) throw patternError;
         
         if (patternData) {
-          setPattern(patternData);
-        }
-        
-        // Fetch steps
-        const { data: stepsData, error: stepsError } = await supabase
-          .from('steps')
-          .select('*')
-          .eq('pattern_id', id)
-          .order('step_order', { ascending: true });
-        
-        if (stepsError) throw stepsError;
-        
-        if (stepsData) {
-          setSteps(stepsData);
-        }
-        
-        // Check if user has an existing project
-        const { data: projectData, error: projectError } = await supabase
-          .from('user_projects')
-          .select('*')
-          .match({ user_id: user.id, pattern_id: id })
-          .maybeSingle();
-        
-        if (projectError) throw projectError;
-        
-        if (projectData) {
-          setUserProject(projectData);
-          setCurrentStepIndex(projectData.current_step || 0);
+          setPattern({
+            id: patternData.id,
+            title: patternData.title,
+            imageUrl: patternData.cover_image_url || ''
+          });
           
-          // Fetch user notes for the current step
-          if (stepsData && stepsData[projectData.current_step || 0]) {
-            const currentStepId = stepsData[projectData.current_step || 0].id;
+          // Fetch steps
+          const { data: stepsData, error: stepsError } = await supabase
+            .from('steps')
+            .select('*')
+            .eq('pattern_id', id)
+            .order('step_order', { ascending: true });
+          
+          if (stepsError) throw stepsError;
+          
+          if (stepsData && stepsData.length > 0) {
+            setSteps(stepsData);
             
-            const { data: notesData } = await supabase
-              .from('user_notes')
-              .select('content')
-              .match({ 
-                user_id: user.id, 
-                pattern_id: id, 
-                step_id: currentStepId 
-              })
+            // Fetch or create user project
+            const { data: projectData, error: projectError } = await supabase
+              .from('user_projects')
+              .select('*')
+              .match({ user_id: user.id, pattern_id: id })
               .maybeSingle();
             
-            if (notesData) {
-              setUserNotes(notesData.content);
+            if (projectError) throw projectError;
+            
+            if (projectData) {
+              // Existing project
+              setProject(projectData);
+              setCurrentStepIndex(projectData.current_step || 0);
+              
+              // Set stitch count from the current step
+              const step = stepsData[projectData.current_step || 0];
+              if (step && step.stitch_count !== null) {
+                setStitchCount(step.stitch_count);
+              }
+            } else {
+              // Create new project
+              const { data: newProject, error: newProjectError } = await supabase
+                .from('user_projects')
+                .insert({
+                  user_id: user.id,
+                  pattern_id: id,
+                  current_step: 0,
+                  progress: 0,
+                  is_completed: false,
+                })
+                .select()
+                .single();
+              
+              if (newProjectError) throw newProjectError;
+              
+              if (newProject) {
+                setProject(newProject);
+                
+                // Set stitch count from the first step
+                const firstStep = stepsData[0];
+                if (firstStep && firstStep.stitch_count !== null) {
+                  setStitchCount(firstStep.stitch_count);
+                }
+              }
             }
-          }
-        } else {
-          // Create a new user project
-          const { data: newProject, error: newProjectError } = await supabase
-            .from('user_projects')
-            .insert({
-              user_id: user.id,
-              pattern_id: id,
-              current_step: 0,
-              progress: 0,
-              started_at: new Date().toISOString(),
-              last_updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-          
-          if (newProjectError) throw newProjectError;
-          
-          if (newProject) {
-            setUserProject(newProject);
+            
+            // Fetch user notes
+            const { data: notesData, error: notesError } = await supabase
+              .from('user_notes')
+              .select('*')
+              .match({ user_id: user.id, pattern_id: id });
+            
+            if (notesError) throw notesError;
+            
+            if (notesData) {
+              const notesMap: Record<string, string> = {};
+              notesData.forEach(note => {
+                if (note.step_id) {
+                  notesMap[note.step_id] = note.content;
+                }
+              });
+              setUserNotes(notesMap);
+              
+              // Set current note
+              if (stepsData[currentStepIndex] && notesMap[stepsData[currentStepIndex].id]) {
+                setCurrentNote(notesMap[stepsData[currentStepIndex].id]);
+              }
+            }
           }
         }
       } catch (error) {
-        console.error('Erro ao carregar projeto:', error);
-        toast.error('Ocorreu um erro ao carregar o projeto');
+        console.error('Erro ao carregar dados do padrão:', error);
+        toast.error('Erro ao carregar o padrão');
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchData();
+    fetchPatternAndSteps();
   }, [id, user]);
-
-  const navigateStep = async (direction: 'prev' | 'next') => {
-    if (!user || !userProject) return;
-    
-    const newIndex = direction === 'next' 
-      ? Math.min(currentStepIndex + 1, steps.length - 1)
-      : Math.max(currentStepIndex - 1, 0);
-    
-    if (newIndex === currentStepIndex) return;
-    
-    setIsSaving(true);
-    
-    try {
-      // Save user notes for the current step if they exist
-      if (userNotes.trim() && steps[currentStepIndex]) {
-        await supabase
-          .from('user_notes')
-          .upsert({
-            user_id: user.id,
-            pattern_id: id,
-            step_id: steps[currentStepIndex].id,
-            content: userNotes
-          })
-          .select();
+  
+  useEffect(() => {
+    // Update current note when step changes
+    if (currentStep) {
+      setCurrentNote(userNotes[currentStep.id] || '');
+      if (currentStep.stitch_count !== null) {
+        setStitchCount(currentStep.stitch_count);
       }
-      
-      // Update user project progress
-      await supabase
-        .from('user_projects')
-        .update({
-          current_step: newIndex,
-          progress: Math.round(((newIndex + 1) / steps.length) * 100),
-          last_updated_at: new Date().toISOString()
-        })
-        .eq('id', userProject.id);
-      
-      // Update state
+    }
+  }, [currentStepIndex, currentStep, userNotes]);
+  
+  const nextStep = async () => {
+    if (currentStepIndex < steps.length - 1) {
+      const newIndex = currentStepIndex + 1;
       setCurrentStepIndex(newIndex);
-      setUserProject({
-        ...userProject,
-        current_step: newIndex,
-        progress: Math.round(((newIndex + 1) / steps.length) * 100)
-      });
       
-      // Clear and load notes for the new step
-      setUserNotes('');
-      
-      if (steps[newIndex]) {
-        const { data: notesData } = await supabase
-          .from('user_notes')
-          .select('content')
-          .match({ 
-            user_id: user.id, 
-            pattern_id: id, 
-            step_id: steps[newIndex].id 
-          })
-          .maybeSingle();
+      // Update project progress
+      if (project) {
+        const progress = Math.round((newIndex / (steps.length - 1)) * 100);
         
-        if (notesData) {
-          setUserNotes(notesData.content);
+        await supabase
+          .from('user_projects')
+          .update({ 
+            current_step: newIndex,
+            progress,
+            last_updated_at: new Date().toISOString()
+          })
+          .eq('id', project.id);
+        
+        setProject({
+          ...project,
+          current_step: newIndex,
+          progress,
+          last_updated_at: new Date().toISOString()
+        });
+        
+        // Show toast for progress
+        if (progress % 25 === 0) {
+          toast.success(`Progresso: ${progress}% concluído!`);
         }
       }
-    } catch (error) {
-      console.error('Erro ao atualizar progresso:', error);
-      toast.error('Ocorreu um erro ao atualizar seu progresso');
-    } finally {
-      setIsSaving(false);
     }
   };
-
-  const saveUserNotes = async () => {
-    if (!user || !userProject || !steps[currentStepIndex]) return;
-    
-    setIsSaving(true);
+  
+  const prevStep = async () => {
+    if (currentStepIndex > 0) {
+      const newIndex = currentStepIndex - 1;
+      setCurrentStepIndex(newIndex);
+      
+      // Update project
+      if (project) {
+        const progress = Math.round((newIndex / (steps.length - 1)) * 100);
+        
+        await supabase
+          .from('user_projects')
+          .update({ 
+            current_step: newIndex,
+            progress,
+            last_updated_at: new Date().toISOString()
+          })
+          .eq('id', project.id);
+        
+        setProject({
+          ...project,
+          current_step: newIndex,
+          progress,
+          last_updated_at: new Date().toISOString()
+        });
+      }
+    }
+  };
+  
+  const saveNote = async () => {
+    if (!currentStep || !user || !id) return;
     
     try {
-      await supabase
+      // Check if note exists
+      const { data: existingNote } = await supabase
         .from('user_notes')
-        .upsert({
+        .select('id')
+        .match({
           user_id: user.id,
           pattern_id: id,
-          step_id: steps[currentStepIndex].id,
-          content: userNotes
+          step_id: currentStep.id
         })
-        .select();
+        .maybeSingle();
       
-      toast.success('Anotações salvas com sucesso');
+      if (existingNote) {
+        // Update existing note
+        await supabase
+          .from('user_notes')
+          .update({ content: currentNote })
+          .eq('id', existingNote.id);
+      } else {
+        // Create new note
+        await supabase
+          .from('user_notes')
+          .insert({
+            user_id: user.id,
+            pattern_id: id,
+            step_id: currentStep.id,
+            content: currentNote
+          });
+      }
+      
+      // Update local state
+      setUserNotes({
+        ...userNotes,
+        [currentStep.id]: currentNote
+      });
+      
+      setEditingNote(false);
+      toast.success('Anotação salva');
     } catch (error) {
-      console.error('Erro ao salvar anotações:', error);
-      toast.error('Ocorreu um erro ao salvar suas anotações');
-    } finally {
-      setIsSaving(false);
+      console.error('Erro ao salvar anotação:', error);
+      toast.error('Erro ao salvar anotação');
     }
   };
-
-  const markAsComplete = async () => {
-    if (!user || !userProject) return;
-    
-    setIsSaving(true);
+  
+  const completeProject = async () => {
+    if (!project) return;
     
     try {
       await supabase
         .from('user_projects')
-        .update({
+        .update({ 
           is_completed: true,
           progress: 100,
           last_updated_at: new Date().toISOString()
         })
-        .eq('id', userProject.id);
+        .eq('id', project.id);
       
-      toast.success('Parabéns! Projeto marcado como concluído');
-      
-      // Update state with type safety
-      setUserProject({
-        ...userProject,
+      setProject({
+        ...project,
+        is_completed: true,
         progress: 100,
-        is_completed: true
+        last_updated_at: new Date().toISOString()
       });
+      
+      toast.success('Projeto concluído! Parabéns!');
     } catch (error) {
-      console.error('Erro ao marcar como concluído:', error);
-      toast.error('Ocorreu um erro ao marcar o projeto como concluído');
-    } finally {
-      setIsSaving(false);
+      console.error('Erro ao concluir projeto:', error);
+      toast.error('Erro ao concluir projeto');
     }
   };
-
-  const getCurrentStep = () => {
-    if (!steps.length || currentStepIndex >= steps.length) {
-      return null;
-    }
-    
-    return steps[currentStepIndex];
-  };
-
+  
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -297,151 +337,211 @@ export default function PatternStepByStep() {
       </div>
     );
   }
-
-  const currentStep = getCurrentStep();
+  
+  if (!pattern || steps.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow container px-4 py-8 md:px-6">
+          <div className="text-center py-12">
+            <p className="text-xl text-muted-foreground">Padrão não encontrado ou sem passos definidos</p>
+            <Button asChild className="mt-4">
+              <Link to="/patterns">Voltar para o catálogo</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-grow container px-4 py-8 md:px-6">
-        {/* Navigation */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
             <Button variant="ghost" asChild className="pl-2 mb-2">
               <Link to={`/patterns/${id}`}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Voltar aos detalhes
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar ao padrão
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold">{pattern?.title}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">{pattern.title}</h1>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" asChild>
+          
+          <div className="flex items-center mt-4 md:mt-0">
+            <Button variant="outline" asChild className="mr-2">
               <Link to="/">
                 <Home className="mr-2 h-4 w-4" />
-                Página Inicial
+                <span className="hidden md:inline">Página Inicial</span>
               </Link>
             </Button>
-            {userProject?.is_completed ? (
-              <Button variant="outline" disabled className="bg-green-50 text-green-700 border-green-200">
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Concluído
+            
+            {project && !project.is_completed && (
+              <Button onClick={completeProject}>
+                <Check className="mr-2 h-4 w-4" />
+                <span className="hidden md:inline">Concluir Projeto</span>
               </Button>
-            ) : (
-              <Button 
-                variant="outline" 
-                onClick={markAsComplete}
-                disabled={isSaving}
-                className={isSaving ? 'opacity-50' : ''}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Marcar como Concluído
+            )}
+            
+            {project && project.is_completed && (
+              <Button disabled variant="secondary">
+                <Flag className="mr-2 h-4 w-4" />
+                <span className="hidden md:inline">Projeto Concluído</span>
               </Button>
             )}
           </div>
         </div>
         
-        {/* Progress */}
-        <Card className="p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Progresso</span>
-            <span className="text-sm font-medium">{progressPercentage}%</span>
+        {project && (
+          <div className="mb-6">
+            <div className="flex justify-between text-sm text-muted-foreground mb-2">
+              <span>Progresso</span>
+              <span>{project.progress}%</span>
+            </div>
+            <Progress value={project.progress} className="h-2" />
           </div>
-          <Progress value={progressPercentage} className="h-2" />
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-            <span>Passo {currentStepIndex + 1}</span>
-            <span>Total: {steps.length} passos</span>
-          </div>
-        </Card>
+        )}
         
-        {/* Step Content */}
-        {currentStep ? (
-          <div className="mb-8">
-            <Card className="p-6">
-              <h2 className="text-xl font-medium mb-2">
-                Passo {currentStep.step_order}: {currentStepIndex + 1} de {steps.length}
-              </h2>
-              {currentStep.stitch_count && (
-                <p className="text-sm text-muted-foreground mb-2">
-                  Total de pontos: {currentStep.stitch_count}
-                </p>
-              )}
-              <Separator className="my-4" />
-              <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* Left column - Step details */}
+          <div className="md:col-span-2 space-y-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Passo {currentStepIndex + 1} de {steps.length}
+                  </span>
+                  {currentStep.stitch_count && (
+                    <span className="text-sm bg-primary/10 text-primary px-2 py-1 rounded">
+                      {currentStep.stitch_count} pontos
+                    </span>
+                  )}
+                </div>
+                
+                <p className="text-lg mb-6">{currentStep.description}</p>
+                
                 {currentStep.image_url && (
-                  <div className="aspect-square rounded-md overflow-hidden border">
+                  <div className="aspect-video rounded-md overflow-hidden bg-muted mb-6">
                     <img 
                       src={currentStep.image_url} 
-                      alt={`Passo ${currentStep.step_order}`} 
-                      className="w-full h-full object-cover"
+                      alt={`Passo ${currentStepIndex + 1}`} 
+                      className="w-full h-full object-contain"
                     />
                   </div>
                 )}
-                <div>
-                  <p className="mb-4">{currentStep.description}</p>
-                  {currentStep.notes && (
-                    <div className="bg-muted p-3 rounded-md text-sm mb-4">
-                      <p className="font-medium mb-1">Notas:</p>
-                      <p>{currentStep.notes}</p>
+                
+                <div className="bg-muted/40 rounded-md p-4 mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium">Suas anotações</h3>
+                    {!editingNote ? (
+                      <Button variant="ghost" size="sm" onClick={() => setEditingNote(true)}>
+                        <Pencil className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={saveNote}>
+                        <Save className="h-4 w-4 mr-1" />
+                        Salvar
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {editingNote ? (
+                    <Textarea 
+                      value={currentNote} 
+                      onChange={(e) => setCurrentNote(e.target.value)}
+                      placeholder="Adicione suas anotações aqui..."
+                      rows={3}
+                    />
+                  ) : (
+                    <div className="text-sm text-muted-foreground min-h-[60px]">
+                      {currentNote ? (
+                        <p>{currentNote}</p>
+                      ) : (
+                        <p className="italic">Sem anotações. Clique em editar para adicionar.</p>
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
+                
+                <div className="flex justify-between">
+                  <Button 
+                    onClick={prevStep}
+                    disabled={currentStepIndex === 0}
+                    variant="outline"
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Anterior
+                  </Button>
+                  
+                  {currentStepIndex < steps.length - 1 ? (
+                    <Button onClick={nextStep}>
+                      Próximo
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button onClick={completeProject} disabled={project?.is_completed}>
+                      <Check className="mr-2 h-4 w-4" />
+                      Concluir
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
             </Card>
             
-            {/* User Notes */}
-            <Card className="mt-6 p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Suas Anotações</h3>
-                <Button 
-                  onClick={saveUserNotes}
-                  disabled={isSaving}
-                  size="sm"
-                >
-                  {isSaving ? 'Salvando...' : 'Salvar Anotações'}
-                </Button>
-              </div>
-              <Textarea 
-                value={userNotes} 
-                onChange={(e) => setUserNotes(e.target.value)}
-                placeholder="Adicione suas anotações para este passo..."
-                className="min-h-[120px]"
-              />
+            {/* Steps list for quick navigation */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center mb-4">
+                  <ListChecks className="h-5 w-5 mr-2" />
+                  <h3 className="font-medium">Todos os Passos</h3>
+                </div>
+                
+                <div className="space-y-1">
+                  {steps.map((step, index) => (
+                    <Button 
+                      key={step.id}
+                      variant={index === currentStepIndex ? "default" : "ghost"}
+                      className="w-full justify-start h-auto py-2"
+                      onClick={() => setCurrentStepIndex(index)}
+                    >
+                      <span className="w-6 text-sm font-medium">{index + 1}.</span>
+                      <span className="text-left truncate">
+                        {step.description.length > 60 
+                          ? step.description.substring(0, 60) + '...' 
+                          : step.description}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
             </Card>
           </div>
-        ) : (
-          <Card className="p-6 text-center">
-            <XCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-xl font-medium mb-2">Nenhum passo encontrado</p>
-            <p className="text-muted-foreground mb-4">
-              Este padrão não possui instruções passo a passo.
-            </p>
-            <Button asChild>
-              <Link to={`/patterns/${id}`}>Voltar aos detalhes</Link>
-            </Button>
-          </Card>
-        )}
-        
-        {/* Navigation Buttons */}
-        {steps.length > 0 && (
-          <div className="flex justify-between mt-8">
-            <Button
-              onClick={() => navigateStep('prev')}
-              disabled={currentStepIndex === 0 || isSaving}
-              variant="outline"
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Passo Anterior
-            </Button>
-            <Button
-              onClick={() => navigateStep('next')}
-              disabled={currentStepIndex === steps.length - 1 || isSaving}
-            >
-              Próximo Passo
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
+          
+          {/* Right column - Tools */}
+          <div className="space-y-6">
+            <StitchCounter 
+              initialCount={stitchCount}
+              onCountChange={(count) => setStitchCount(count)}
+            />
+            
+            {/* Pattern image */}
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="font-medium mb-2">Visualização</h3>
+                <div className="aspect-square rounded-md overflow-hidden bg-muted">
+                  <img 
+                    src={pattern.imageUrl} 
+                    alt={pattern.title} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
+        </div>
       </main>
       <Footer />
     </div>
