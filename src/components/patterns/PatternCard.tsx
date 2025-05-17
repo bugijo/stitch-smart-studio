@@ -12,7 +12,10 @@ import { toast } from "sonner";
 interface Pattern {
   id: string;
   title: string;
-  designer: string;
+  designer: string | {
+    id: string;
+    name: string;
+  };
   category: string;
   difficulty: string;
   imageUrl: string;
@@ -76,6 +79,11 @@ export default function PatternCard({ pattern, onFavoriteToggle }: PatternCardPr
     }
   };
 
+  // Handle designer which can be string or object
+  const designerName = typeof pattern.designer === 'string' 
+    ? pattern.designer 
+    : pattern.designer.name;
+
   return (
     <Link to={`/patterns/${pattern.id}`}>
       <Card className="overflow-hidden pattern-card h-full hover:shadow-md transition-all">
@@ -100,7 +108,7 @@ export default function PatternCard({ pattern, onFavoriteToggle }: PatternCardPr
         <CardContent className="p-4">
           <h3 className="font-medium mb-1 line-clamp-1">{pattern.title}</h3>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">{pattern.designer}</span>
+            <span className="text-muted-foreground">{designerName}</span>
             <Badge variant="outline" className="font-normal">
               {pattern.category}
             </Badge>

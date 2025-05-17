@@ -1,117 +1,82 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Heart, ArrowLeft, Book, ListOrdered, Share } from 'lucide-react';
+import Layout from '@/components/layout/Layout';
 import PatternMaterials from '@/components/patterns/PatternMaterials';
 import PatternSteps from '@/components/patterns/PatternSteps';
-import PatternGraph from '@/components/patterns/PatternGraph';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Heart, Share2, Bookmark } from 'lucide-react';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
-
-interface Pattern {
-  id: string;
-  title: string;
-  description: string;
-  designer: {
-    id: string;
-    name: string;
-  };
-  category: {
-    id: string;
-    name: string;
-  };
-  difficulty: {
-    id: string;
-    name: string;
-  };
-  imageUrl: string;
-  isFavorite: boolean;
-}
 
 export default function PatternDetail() {
-  const { id } = useParams();
-  const { user } = useAuth();
-  const [pattern, setPattern] = useState<Pattern | null>(null);
+  const { id } = useParams<{ id: string }>();
+  const [patternData, setPatternData] = useState<any>(null);
+  const [materials, setMaterials] = useState([]);
+  const [steps, setSteps] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
-
+  const { user } = useAuth();
+  
   useEffect(() => {
-    const fetchPatternDetails = async () => {
+    const fetchPatternData = async () => {
       setIsLoading(true);
       
       try {
-        // Fetch pattern data
+        // Fetch pattern details
         const { data: patternData, error: patternError } = await supabase
           .from('patterns')
           .select(`
-            id,
-            title,
-            description,
-            cover_image_url,
-            designer_id,
-            category_id,
-            difficulty_id,
-            categories (id, name),
-            difficulty_levels (id, name),
-            profiles (id, name)
+            *,
+            categories (*),
+            difficulty_levels (*),
+            profiles (*)
           `)
           .eq('id', id)
           .single();
         
         if (patternError) throw patternError;
         
-        // Process pattern data
-        const formattedPattern = {
-          id: patternData.id,
-          title: patternData.title || '',
-          coverImage: patternData.cover_image_url || '',
-          description: patternData.description || '',
-          designer: {
-            id: patternData.designer_id || '',
-            name: patternData.profiles && typeof patternData.profiles === 'object' && patternData.profiles !== null ? 
-              (patternData.profiles.name || 'Designer desconhecido') : 'Designer desconhecido'
-          },
-          category: {
-            id: patternData.category_id || '',
-            name: patternData.categories ? 
-              (typeof patternData.categories === 'object' && patternData.categories !== null && 'name' in patternData.categories ? 
-                patternData.categories.name || 'Sem categoria' : 'Sem categoria') : 
-              'Sem categoria',
-          },
-          difficulty: {
-            id: patternData.difficulty_id || '',
-            name: patternData.difficulty_levels ? 
-              (typeof patternData.difficulty_levels === 'object' && patternData.difficulty_levels !== null && 'name' in patternData.difficulty_levels ? 
-                patternData.difficulty_levels.name || 'Iniciante' : 'Iniciante') : 
-              'Iniciante',
-          },
-          imageUrl: patternData.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
-          isFavorite: false
-        };
+        // Fetch materials for this pattern
+        const { data: materialsData, error: materialsError } = await supabase
+          .from('materials')
+          .select('*')
+          .eq('pattern_id', id);
         
-        // Check if pattern is favorited by current user
+        if (materialsError) throw materialsError;
+        
+        // Fetch steps for this pattern
+        const { data: stepsData, error: stepsError } = await supabase
+          .from('steps')
+          .select('*')
+          .eq('pattern_id', id)
+          .order('step_order', { ascending: true });
+        
+        if (stepsError) throw stepsError;
+        
+        // Check if the pattern is in user's favorites
+        let isFav = false;
         if (user) {
-          const { data: favoriteData } = await supabase
+          const { data: favData } = await supabase
             .from('favorites')
             .select('id')
-            .match({ user_id: user.id, pattern_id: id })
-            .single();
+            .eq('pattern_id', id)
+            .eq('user_id', user.id)
+            .maybeSingle();
           
-          setIsFavorite(!!favoriteData);
+          isFav = Boolean(favData);
         }
         
-        if (patternData) {
-          setPattern(formattedPattern);
-        }
+        setPatternData(patternData);
+        setMaterials(materialsData || []);
+        setSteps(stepsData || []);
+        setIsFavorite(isFav);
       } catch (error) {
-        console.error('Erro ao buscar detalhes do padrão:', error);
+        console.error('Erro ao carregar os dados do padrão:', error);
         toast.error('Não foi possível carregar os detalhes do padrão');
       } finally {
         setIsLoading(false);
@@ -119,11 +84,11 @@ export default function PatternDetail() {
     };
     
     if (id) {
-      fetchPatternDetails();
+      fetchPatternData();
     }
   }, [id, user]);
-
-  const toggleFavorite = async () => {
+  
+  const handleToggleFavorite = async () => {
     if (!user) {
       toast.error('Você precisa fazer login para adicionar favoritos');
       return;
@@ -131,7 +96,7 @@ export default function PatternDetail() {
     
     try {
       if (isFavorite) {
-        // Remove from favorites
+        // Remover dos favoritos
         await supabase
           .from('favorites')
           .delete()
@@ -139,7 +104,7 @@ export default function PatternDetail() {
         
         toast.success('Removido dos favoritos');
       } else {
-        // Add to favorites
+        // Adicionar aos favoritos
         await supabase
           .from('favorites')
           .insert({ user_id: user.id, pattern_id: id });
@@ -153,158 +118,133 @@ export default function PatternDetail() {
       toast.error('Ocorreu um erro ao atualizar favorito');
     }
   };
-
-  const startProject = () => {
-    if (!user) {
-      toast.error('Você precisa fazer login para iniciar um projeto');
-      return;
-    }
-    
-    window.location.href = `/patterns/${id}/steps`;
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch(difficulty) {
-      case 'Iniciante': return 'bg-green-100 text-green-800';
-      case 'Intermediário': return 'bg-amber-100 text-amber-800';
-      case 'Avançado': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
+  
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow container px-4 py-8 md:px-6 flex justify-center items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </main>
-        <Footer />
-      </div>
+      <Layout>
+        <div className="container py-8 flex flex-col items-center">
+          <p>Carregando detalhes do padrão...</p>
+        </div>
+      </Layout>
     );
   }
-
-  if (!pattern) {
+  
+  if (!patternData) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow container px-4 py-8 md:px-6">
-          <div className="text-center py-12">
-            <p className="text-xl text-muted-foreground">Padrão não encontrado</p>
-            <Button asChild className="mt-4">
-              <Link to="/patterns">Voltar para o catálogo</Link>
-            </Button>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <Layout>
+        <div className="container py-8 flex flex-col items-center">
+          <h1 className="text-2xl font-bold mb-4">Padrão não encontrado</h1>
+          <p className="mb-6">O padrão que você está procurando não existe ou foi removido.</p>
+          <Button asChild>
+            <Link to="/patterns">Voltar para o catálogo</Link>
+          </Button>
+        </div>
+      </Layout>
     );
   }
-
+  
+  const designerName = patternData.profiles ? patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido';
+  
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-grow container px-4 py-8 md:px-6">
-        <div className="mb-6">
-          <Button variant="ghost" asChild className="pl-2 mb-2">
-            <Link to="/patterns">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar ao catálogo
-            </Link>
-          </Button>
-          
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="aspect-square rounded-lg overflow-hidden border">
-              <img
-                src={pattern.imageUrl}
-                alt={pattern.title}
+    <Layout>
+      <div className="container max-w-4xl py-6">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Pattern image */}
+          <div className="w-full md:w-1/2">
+            <div className="aspect-square rounded-md overflow-hidden border bg-muted">
+              <img 
+                src={patternData.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901'} 
+                alt={patternData.title} 
                 className="w-full h-full object-cover"
               />
             </div>
-            
-            <div className="flex flex-col">
-              <h1 className="text-3xl font-bold">{pattern.title}</h1>
-              
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Badge variant="secondary">
-                  Por {pattern.designer.name}
-                </Badge>
-                <Badge variant="outline">
-                  {pattern.category.name}
-                </Badge>
-                <Badge className={getDifficultyColor(pattern.difficulty.name)}>
-                  {pattern.difficulty.name}
-                </Badge>
-              </div>
-              
-              <p className="mt-4 text-muted-foreground">
-                {pattern.description || "Nenhuma descrição disponível."}
-              </p>
-              
-              <div className="mt-auto flex flex-col sm:flex-row gap-3 pt-6">
-                <Button onClick={startProject} className="flex-1">
-                  <ListOrdered className="mr-2 h-4 w-4" />
-                  Iniciar passo a passo
-                </Button>
+          </div>
+          
+          {/* Pattern info */}
+          <div className="w-full md:w-1/2">
+            <div className="flex items-start justify-between mb-4">
+              <h1 className="text-2xl sm:text-3xl font-bold">{patternData.title}</h1>
+              <div className="flex gap-2">
                 <Button 
-                  variant="outline" 
-                  onClick={toggleFavorite}
-                  className={`flex-1 ${isFavorite ? 'text-red-500 border-red-200' : ''}`}
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleToggleFavorite}
+                  className={isFavorite ? 'text-red-500' : ''}
                 >
-                  <Heart className={`mr-2 h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
-                  {isFavorite ? 'Favorito' : 'Favoritar'}
+                  <Heart className={isFavorite ? "fill-current" : ""} />
                 </Button>
-                <Button variant="outline" className="flex-1">
-                  <Share className="mr-2 h-4 w-4" />
-                  Compartilhar
+                <Button variant="ghost" size="icon">
+                  <Share2 />
                 </Button>
               </div>
+            </div>
+            
+            {/* Designer info */}
+            <div className="flex items-center gap-3 mb-6">
+              <Avatar>
+                <AvatarFallback>
+                  {designerName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold">{designerName}</p>
+                <p className="text-sm text-muted-foreground">Designer</p>
+              </div>
+            </div>
+            
+            {/* Tags */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {patternData.categories && (
+                <Badge variant="secondary">
+                  {patternData.categories.name}
+                </Badge>
+              )}
+              {patternData.difficulty_levels && (
+                <Badge variant="outline">
+                  {patternData.difficulty_levels.name}
+                </Badge>
+              )}
+            </div>
+            
+            {/* Description */}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold mb-2">Descrição</h2>
+              <p className="text-muted-foreground">{patternData.description || 'Sem descrição disponível'}</p>
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex flex-col gap-3">
+              <Button asChild>
+                <Link to={`/patterns/${id}/steps`}>Iniciar Projeto</Link>
+              </Button>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Bookmark size={18} /> Salvar para mais tarde
+              </Button>
             </div>
           </div>
         </div>
         
-        <Separator className="my-6" />
-        
-        <Tabs defaultValue="materials">
-          <TabsList className="mb-6">
+        {/* Tabs for materials and steps preview */}
+        <Tabs defaultValue="materials" className="mt-12">
+          <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="materials">Materiais</TabsTrigger>
-            <TabsTrigger value="chart">Gráfico</TabsTrigger>
             <TabsTrigger value="instructions">Instruções</TabsTrigger>
           </TabsList>
-          <TabsContent value="materials">
-            <PatternMaterials patternId={pattern.id} />
+          <TabsContent value="materials" className="py-4">
+            <PatternMaterials materials={materials} />
           </TabsContent>
-          <TabsContent value="chart">
-            <PatternGraph patternId={pattern.id} />
-          </TabsContent>
-          <TabsContent value="instructions">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Instruções</h2>
-              <Button variant="outline" onClick={startProject}>
-                <Book className="mr-2 h-4 w-4" />
-                Iniciar passo a passo
-              </Button>
-            </div>
-            <p className="text-muted-foreground mb-4">
-              Esse padrão possui um guia passo a passo interativo. Clique em "Iniciar passo a passo" para começar.
-            </p>
+          <TabsContent value="instructions" className="py-4">
+            <PatternSteps steps={steps.slice(0, 2)} showPreview={true} />
+            {steps.length > 2 && (
+              <div className="text-center mt-8">
+                <Button asChild>
+                  <Link to={`/patterns/${id}/steps`}>Ver todas as instruções</Link>
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </Layout>
   );
 }
-
-function getDifficultyColor(difficulty: string) {
-  switch(difficulty) {
-    case 'Iniciante': return 'bg-green-100 text-green-800';
-    case 'Intermediário': return 'bg-amber-100 text-amber-800';
-    case 'Avançado': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-}
-
-function toggleFavorite() {}
-
-function startProject() {}

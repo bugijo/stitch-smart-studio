@@ -1,216 +1,275 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import PatternCard from '@/components/patterns/PatternCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Search } from 'lucide-react';
-import PatternCard from '@/components/patterns/PatternCard';
+import Layout from '@/components/layout/Layout';
+import { toast } from 'sonner';
 
 interface Pattern {
   id: string;
   title: string;
-  designer: string;
+  designer: {
+    id: string;
+    name: string;
+  };
   category: string;
   difficulty: string;
   imageUrl: string;
   isFavorite: boolean;
 }
 
-export default function Catalog() {
-  const navigate = useNavigate();
+const Catalog = () => {
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('');
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [difficulties, setDifficulties] = useState<{ id: string; name: string }[]>([]);
   const { user } = useAuth();
-  const [favorites, setFavorites] = useState<string[]>([]);
-  
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase
+        .from('categories')
+        .select('id, name');
+      
+      if (data) setCategories(data);
+    };
+
+    const fetchDifficulties = async () => {
+      const { data } = await supabase
+        .from('difficulty_levels')
+        .select('id, name');
+      
+      if (data) setDifficulties(data);
+    };
+
+    fetchCategories();
+    fetchDifficulties();
+  }, []);
+
   useEffect(() => {
     const fetchPatterns = async () => {
       setIsLoading(true);
+      
       try {
-        // Fetch favorites if user is logged in
-        let userFavorites: string[] = [];
+        const { data, error } = await supabase
+          .from('patterns')
+          .select(`
+            id,
+            title,
+            cover_image_url,
+            category_id,
+            difficulty_id,
+            designer_id,
+            categories (name),
+            difficulty_levels (name),
+            profiles (id, name)
+          `)
+          .eq('is_public', true);
+        
+        if (error) throw error;
+
+        // Se o usuário estiver logado, buscar favoritos
+        let favorites: string[] = [];
         if (user) {
           const { data: favoritesData } = await supabase
             .from('favorites')
             .select('pattern_id')
             .eq('user_id', user.id);
           
-          userFavorites = favoritesData ? favoritesData.map(fav => fav.pattern_id) : [];
-          setFavorites(userFavorites);
+          if (favoritesData) {
+            favorites = favoritesData.map(fav => fav.pattern_id);
+          }
         }
-        
-        // Fetch patterns
-        let query = supabase
-          .from('patterns')
-          .select(`
-            *,
-            categories (name),
-            difficulty_levels (name),
-            profiles (name)
-          `)
-          .order('created_at', { ascending: false });
-        
-        if (selectedCategory !== 'all') {
-          query = query.eq('category_id', selectedCategory);
-        }
-        
-        if (selectedDifficulty !== 'all') {
-          query = query.eq('difficulty_id', selectedDifficulty);
-        }
-        
-        if (searchQuery) {
-          query = query.ilike('title', `%${searchQuery}%`);
-        }
-        
-        const { data: patternsData, error } = await query;
-        
-        if (error) throw error;
-        
-        if (patternsData) {
-          const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
+
+        if (data) {
+          const formattedPatterns: Pattern[] = data.map(pattern => ({
             id: pattern.id,
             title: pattern.title,
-            designer: pattern.profiles && typeof pattern.profiles === 'object' && pattern.profiles !== null ? 
-              (pattern.profiles.name || "Designer desconhecido") : "Designer desconhecido",
-            category: pattern.categories ? 
-              (typeof pattern.categories === 'object' && pattern.categories !== null && 'name' in pattern.categories ? 
-                pattern.categories.name || "Sem categoria" : "Sem categoria") : 
-              "Sem categoria",
-            difficulty: pattern.difficulty_levels ? 
-              (typeof pattern.difficulty_levels === 'object' && pattern.difficulty_levels !== null && 'name' in pattern.difficulty_levels ? 
-                pattern.difficulty_levels.name || "Iniciante" : "Iniciante") : 
-              "Iniciante",
-            imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
-            isFavorite: userFavorites.includes(pattern.id)
+            designer: {
+              id: pattern.designer_id || '',
+              // Safely handle potentially null profiles
+              name: pattern.profiles ? pattern.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
+            },
+            category: pattern.categories?.name || 'Sem categoria',
+            difficulty: pattern.difficulty_levels?.name || 'Iniciante',
+            imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
+            isFavorite: favorites.includes(pattern.id)
           }));
           
           setPatterns(formattedPatterns);
         }
       } catch (error) {
-        console.error('Erro ao buscar padrões:', error);
+        console.error("Erro ao buscar padrões:", error);
+        toast.error("Não foi possível carregar os padrões.");
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchPatterns();
-  }, [selectedCategory, selectedDifficulty, searchQuery, user]);
-  
-  const handleFavoriteToggle = async (patternId: string) => {
+  }, [user]);
+
+  const handleToggleFavorite = async (patternId: string) => {
     if (!user) {
-      navigate('/auth');
+      toast.error("Você precisa fazer login para adicionar favoritos");
       return;
     }
     
-    const isFavorite = favorites.includes(patternId);
+    const pattern = patterns.find(p => p.id === patternId);
+    if (!pattern) return;
     
     try {
-      if (isFavorite) {
-        // Remove from favorites
+      if (pattern.isFavorite) {
+        // Remover dos favoritos
         await supabase
           .from('favorites')
           .delete()
-          .eq('user_id', user.id)
-          .eq('pattern_id', patternId);
-          
-        setFavorites(favorites.filter(id => id !== patternId));
+          .match({ user_id: user.id, pattern_id: patternId });
+        
+        toast.success("Removido dos favoritos");
       } else {
-        // Add to favorites
+        // Adicionar aos favoritos
         await supabase
           .from('favorites')
           .insert({ user_id: user.id, pattern_id: patternId });
-          
-        setFavorites([...favorites, patternId]);
+        
+        toast.success("Adicionado aos favoritos");
       }
       
-      // Update patterns state
-      setPatterns(patterns.map(pattern => 
-        pattern.id === patternId 
-          ? { ...pattern, isFavorite: !isFavorite } 
-          : pattern
+      // Atualizar estado local
+      setPatterns(patterns.map(p => 
+        p.id === patternId ? { ...p, isFavorite: !p.isFavorite } : p
       ));
-      
     } catch (error) {
-      console.error('Erro ao atualizar favoritos:', error);
+      console.error("Erro ao atualizar favorito:", error);
+      toast.error("Ocorreu um erro ao atualizar favorito");
     }
   };
 
+  const filteredPatterns = patterns.filter(pattern => {
+    const matchesSearch = pattern.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          pattern.designer.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter ? pattern.category === categoryFilter : true;
+    const matchesDifficulty = difficultyFilter ? pattern.difficulty === difficultyFilter : true;
+    
+    return matchesSearch && matchesCategory && matchesDifficulty;
+  });
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-grow container px-4 py-8 md:px-6">
-        <h1 className="text-3xl font-bold mb-8">Catálogo de Padrões</h1>
-        
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <Input
-            type="text"
-            placeholder="Buscar padrões..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-grow"
-          />
+    <Layout>
+      <div className="container py-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <h1 className="text-2xl font-bold">Catálogo de Padrões</h1>
           
-          <div className="flex gap-2">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="select select-bordered w-full max-w-xs"
-            >
-              <option value="all">Todas as Categorias</option>
-              <option value="1">Amigurumi</option>
-              <option value="2">Roupas</option>
-              <option value="3">Acessórios</option>
-              <option value="4">Decoração</option>
-            </select>
-            
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="select select-bordered w-full max-w-xs"
-            >
-              <option value="all">Todas as Dificuldades</option>
-              <option value="1">Iniciante</option>
-              <option value="2">Fácil</option>
-              <option value="3">Médio</option>
-              <option value="4">Avançado</option>
-            </select>
+          <div className="w-full md:w-auto">
+            <Input
+              placeholder="Pesquisar padrões..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="md:w-[300px]"
+            />
           </div>
         </div>
         
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="w-full md:w-64 space-y-4">
+            <div>
+              <h3 className="font-medium mb-2">Categorias</h3>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas categorias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todas categorias</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-2">Dificuldade</h3>
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos níveis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos níveis</SelectItem>
+                  {difficulties.map((difficulty) => (
+                    <SelectItem key={difficulty.id} value={difficulty.name}>
+                      {difficulty.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {(categoryFilter || difficultyFilter || searchTerm) && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm('');
+                  setCategoryFilter('');
+                  setDifficultyFilter('');
+                }}
+              >
+                Limpar filtros
+              </Button>
+            )}
           </div>
-        ) : patterns.length === 0 ? (
-          <div className="text-center py-12">
-            <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-xl font-medium mb-2">Nenhum padrão encontrado</p>
-            <p className="text-muted-foreground mb-6">
-              Tente ajustar os filtros ou a busca para encontrar o que procura.
-            </p>
+          
+          <Separator orientation="vertical" className="hidden md:block h-auto" />
+          
+          <div className="flex-1">
+            {isLoading ? (
+              <p className="text-center py-8">Carregando padrões...</p>
+            ) : filteredPatterns.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {filteredPatterns.map((pattern) => (
+                  <PatternCard 
+                    key={pattern.id} 
+                    pattern={pattern} 
+                    onFavoriteToggle={() => handleToggleFavorite(pattern.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">Nenhum padrão encontrado para os filtros aplicados.</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setSearchTerm('');
+                    setCategoryFilter('');
+                    setDifficultyFilter('');
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {patterns.map(pattern => (
-              <PatternCard 
-                key={pattern.id} 
-                pattern={pattern} 
-                onFavoriteToggle={handleFavoriteToggle}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-      <Footer />
-    </div>
+        </div>
+      </div>
+    </Layout>
   );
-}
+};
+
+export default Catalog;

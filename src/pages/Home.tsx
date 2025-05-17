@@ -53,8 +53,8 @@ export default function Home() {
             title: pattern.title,
             designer: {
               id: pattern.designer_id || '',
-              name: pattern.profiles && typeof pattern.profiles === 'object' && pattern.profiles !== null ? 
-                (pattern.profiles.name || 'Designer desconhecido') : 'Designer desconhecido',
+              // Safely handle potentially null profiles
+              name: pattern.profiles ? pattern.profiles.name || 'Designer desconhecido' : 'Designer desconhecido',
               avatar: ''
             },
             imageUrl: pattern.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
