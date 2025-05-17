@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import Index from "./pages/Index";
+import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Catalog from "./pages/Catalog";
@@ -13,6 +13,7 @@ import PatternDetail from "./pages/PatternDetail";
 import PatternStepByStep from "./pages/PatternStepByStep";
 import Favorites from "./pages/Favorites";
 import Profile from "./pages/Profile";
+import Search from "./pages/Search";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -26,8 +27,9 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/search" element={<Search />} />
               <Route path="/patterns" element={<Catalog />} />
               <Route path="/patterns/:id" element={<PatternDetail />} />
               <Route path="/patterns/:id/steps" element={

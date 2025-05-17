@@ -43,11 +43,11 @@ export default function PatternDetail() {
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
-    const fetchPattern = async () => {
+    const fetchPatternDetails = async () => {
       setIsLoading(true);
       
       try {
-        // Fetch pattern details
+        // Fetch pattern data
         const { data: patternData, error: patternError } = await supabase
           .from('patterns')
           .select(`
@@ -67,6 +67,35 @@ export default function PatternDetail() {
         
         if (patternError) throw patternError;
         
+        // Process pattern data
+        const formattedPattern = {
+          id: patternData.id,
+          title: patternData.title || '',
+          coverImage: patternData.cover_image_url || '',
+          description: patternData.description || '',
+          designer: {
+            id: patternData.designer_id || '',
+            name: patternData.profiles && typeof patternData.profiles === 'object' && patternData.profiles !== null && 'name' in patternData.profiles ? 
+              patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
+          },
+          category: {
+            id: patternData.category_id || '',
+            name: patternData.categories ? 
+              (typeof patternData.categories === 'object' && patternData.categories !== null && 'name' in patternData.categories ? 
+                patternData.categories.name || 'Sem categoria' : 'Sem categoria') : 
+              'Sem categoria',
+          },
+          difficulty: {
+            id: patternData.difficulty_id || '',
+            name: patternData.difficulty_levels ? 
+              (typeof patternData.difficulty_levels === 'object' && patternData.difficulty_levels !== null && 'name' in patternData.difficulty_levels ? 
+                patternData.difficulty_levels.name || 'Iniciante' : 'Iniciante') : 
+              'Iniciante',
+          },
+          imageUrl: patternData.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
+          isFavorite: false
+        };
+        
         // Check if pattern is favorited by current user
         if (user) {
           const { data: favoriteData } = await supabase
@@ -79,32 +108,7 @@ export default function PatternDetail() {
         }
         
         if (patternData) {
-          setPattern({
-            id: patternData.id,
-            title: patternData.title,
-            description: patternData.description || '',
-            designer: {
-              id: patternData.designer_id || '',
-              name: patternData.profiles && typeof patternData.profiles === 'object' && patternData.profiles !== null && 'name' in patternData.profiles ? 
-                patternData.profiles.name || 'Designer desconhecido' : 'Designer desconhecido'
-            },
-            category: {
-              id: patternData.category_id || '',
-              name: patternData.categories ? 
-                (typeof patternData.categories === 'object' && patternData.categories !== null && 'name' in patternData.categories ? 
-                  patternData.categories.name || 'Sem categoria' : 'Sem categoria') : 
-                'Sem categoria'
-            },
-            difficulty: {
-              id: patternData.difficulty_id || '',
-              name: patternData.difficulty_levels ? 
-                (typeof patternData.difficulty_levels === 'object' && patternData.difficulty_levels !== null && 'name' in patternData.difficulty_levels ? 
-                  patternData.difficulty_levels.name || 'Iniciante' : 'Iniciante') : 
-                'Iniciante'
-            },
-            imageUrl: patternData.cover_image_url || 'https://images.unsplash.com/photo-1582562124811-c09040d0a901',
-            isFavorite: false
-          });
+          setPattern(formattedPattern);
         }
       } catch (error) {
         console.error('Erro ao buscar detalhes do padrão:', error);
@@ -115,7 +119,7 @@ export default function PatternDetail() {
     };
     
     if (id) {
-      fetchPattern();
+      fetchPatternDetails();
     }
   }, [id, user]);
 

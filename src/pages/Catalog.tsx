@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pagination } from '@/components/ui/pagination';
-import PatternCard from '@/components/patterns/PatternCard';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import { Loader2, Search } from 'lucide-react';
+import PatternCard from '@/components/patterns/PatternCard';
 
 interface Pattern {
   id: string;
@@ -21,82 +22,58 @@ interface Pattern {
 }
 
 export default function Catalog() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
-  const [difficulties, setDifficulties] = useState<{id: string, name: string}[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  const { user } = useAuth();
+  const [favorites, setFavorites] = useState<string[]>([]);
   
-  // Filters
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
-  const [selectedDifficulty, setSelectedDifficulty] = useState(searchParams.get('difficulty') || '');
-  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
-  const pageSize = 12;
-
-  useEffect(() => {
-    // Fetch categories and difficulties for filters
-    const fetchMetadata = async () => {
-      const { data: categoriesData } = await supabase
-        .from('categories')
-        .select('id, name')
-        .order('name');
-      
-      const { data: difficultiesData } = await supabase
-        .from('difficulty_levels')
-        .select('id, name')
-        .order('name');
-      
-      if (categoriesData) setCategories(categoriesData);
-      if (difficultiesData) setDifficulties(difficultiesData);
-    };
-    
-    fetchMetadata();
-  }, []);
-
   useEffect(() => {
     const fetchPatterns = async () => {
       setIsLoading(true);
-      
       try {
+        // Fetch favorites if user is logged in
+        let userFavorites: string[] = [];
+        if (user) {
+          const { data: favoritesData } = await supabase
+            .from('favorites')
+            .select('pattern_id')
+            .eq('user_id', user.id);
+          
+          userFavorites = favoritesData ? favoritesData.map(fav => fav.pattern_id) : [];
+          setFavorites(userFavorites);
+        }
+        
+        // Fetch patterns
         let query = supabase
           .from('patterns')
           .select(`
-            id,
-            title,
-            cover_image_url,
-            designer_id,
-            category_id,
-            difficulty_id,
-            categories (id, name),
-            difficulty_levels (id, name),
-            profiles (id, name)
-          `, { count: 'exact' })
-          .eq('is_public', true)
-          .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+            *,
+            categories (name),
+            difficulty_levels (name),
+            profiles (name)
+          `)
+          .order('created_at', { ascending: false });
         
-        // Apply filters
+        if (selectedCategory !== 'all') {
+          query = query.eq('category_id', selectedCategory);
+        }
+        
+        if (selectedDifficulty !== 'all') {
+          query = query.eq('difficulty_id', selectedDifficulty);
+        }
+        
         if (searchQuery) {
           query = query.ilike('title', `%${searchQuery}%`);
         }
         
-        if (selectedCategory) {
-          query = query.eq('category_id', selectedCategory);
-        }
+        const { data: patternsData, error } = await query;
         
-        if (selectedDifficulty) {
-          query = query.eq('difficulty_id', selectedDifficulty);
-        }
+        if (error) throw error;
         
-        const { data: patternsData, count } = await query;
-        
-        // Calculate total pages
-        if (count !== null) {
-          setTotalPages(Math.ceil(count / pageSize));
-        }
-        
-        // Transform data for display
         if (patternsData) {
           const formattedPatterns: Pattern[] = patternsData.map(pattern => ({
             id: pattern.id,
@@ -112,7 +89,7 @@ export default function Catalog() {
                 pattern.difficulty_levels.name || "Iniciante" : "Iniciante") : 
               "Iniciante",
             imageUrl: pattern.cover_image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
-            isFavorite: false
+            isFavorite: userFavorites.includes(pattern.id)
           }));
           
           setPatterns(formattedPatterns);
@@ -125,35 +102,45 @@ export default function Catalog() {
     };
     
     fetchPatterns();
+  }, [selectedCategory, selectedDifficulty, searchQuery, user]);
+  
+  const handleFavoriteToggle = async (patternId: string) => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
     
-    // Update URL search params
-    const params: Record<string, string> = {};
-    if (searchQuery) params.q = searchQuery;
-    if (selectedCategory) params.category = selectedCategory;
-    if (selectedDifficulty) params.difficulty = selectedDifficulty;
-    if (currentPage > 1) params.page = currentPage.toString();
-    setSearchParams(params);
+    const isFavorite = favorites.includes(patternId);
     
-  }, [searchQuery, selectedCategory, selectedDifficulty, currentPage, pageSize, setSearchParams]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCurrentPage(1); // Reset to first page on new search
-  };
-
-  const handleCategoryChange = (value: string) => {
-    setSelectedCategory(value);
-    setCurrentPage(1);
-  };
-
-  const handleDifficultyChange = (value: string) => {
-    setSelectedDifficulty(value);
-    setCurrentPage(1);
-  };
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo(0, 0);
+    try {
+      if (isFavorite) {
+        // Remove from favorites
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('pattern_id', patternId);
+          
+        setFavorites(favorites.filter(id => id !== patternId));
+      } else {
+        // Add to favorites
+        await supabase
+          .from('favorites')
+          .insert({ user_id: user.id, pattern_id: patternId });
+          
+        setFavorites([...favorites, patternId]);
+      }
+      
+      // Update patterns state
+      setPatterns(patterns.map(pattern => 
+        pattern.id === patternId 
+          ? { ...pattern, isFavorite: !isFavorite } 
+          : pattern
+      ));
+      
+    } catch (error) {
+      console.error('Erro ao atualizar favoritos:', error);
+    }
   };
 
   return (
@@ -162,71 +149,64 @@ export default function Catalog() {
       <main className="flex-grow container px-4 py-8 md:px-6">
         <h1 className="text-3xl font-bold mb-8">Catálogo de Padrões</h1>
         
-        {/* Filters */}
-        <div className="mb-8 bg-muted/50 p-4 rounded-lg border">
-          <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Input
-                type="text"
-                placeholder="Buscar padrões..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-              <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-            </div>
-            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todas categorias</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedDifficulty} onValueChange={handleDifficultyChange}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Dificuldade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todas dificuldades</SelectItem>
-                {difficulties.map(difficulty => (
-                  <SelectItem key={difficulty.id} value={difficulty.id}>{difficulty.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="submit" className="md:w-[100px]">Filtrar</Button>
-          </form>
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <Input
+            type="text"
+            placeholder="Buscar padrões..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-grow"
+          />
+          
+          <div className="flex gap-2">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="select select-bordered w-full max-w-xs"
+            >
+              <option value="all">Todas as Categorias</option>
+              <option value="1">Amigurumi</option>
+              <option value="2">Roupas</option>
+              <option value="3">Acessórios</option>
+              <option value="4">Decoração</option>
+            </select>
+            
+            <select
+              value={selectedDifficulty}
+              onChange={(e) => setSelectedDifficulty(e.target.value)}
+              className="select select-bordered w-full max-w-xs"
+            >
+              <option value="all">Todas as Dificuldades</option>
+              <option value="1">Iniciante</option>
+              <option value="2">Fácil</option>
+              <option value="3">Médio</option>
+              <option value="4">Avançado</option>
+            </select>
+          </div>
         </div>
         
-        {/* Results */}
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : patterns.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-xl text-muted-foreground">Nenhum padrão encontrado</p>
-            <p className="mt-2">Tente ajustar seus filtros de busca</p>
+            <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-xl font-medium mb-2">Nenhum padrão encontrado</p>
+            <p className="text-muted-foreground mb-6">
+              Tente ajustar os filtros ou a busca para encontrar o que procura.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {patterns.map(pattern => (
-              <PatternCard key={pattern.id} pattern={pattern} />
+              <PatternCard 
+                key={pattern.id} 
+                pattern={pattern} 
+                onFavoriteToggle={() => handleFavoriteToggle(pattern.id)}
+                isFavorite={favorites.includes(pattern.id)}
+              />
             ))}
-          </div>
-        )}
-        
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-8">
-            <Pagination 
-              currentPage={currentPage} 
-              totalPages={totalPages} 
-              onPageChange={handlePageChange} 
-            />
           </div>
         )}
       </main>
